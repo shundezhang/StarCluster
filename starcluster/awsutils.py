@@ -244,18 +244,21 @@ class EasyEC2(EasyAWS):
         group
         """
         log.info("Creating security group %s..." % name)
+        #print description
         sg = self.conn.create_security_group(name, description)
         while not self.get_group_or_none(name):
             log.info("Waiting for security group %s..." % name)
             time.sleep(3)
+        log.debug("%s %s" % (auth_ssh, auth_group_traffic))
         if auth_ssh:
             ssh_port = static.DEFAULT_SSH_PORT
             sg.authorize('tcp', ssh_port, ssh_port, static.WORLD_CIDRIP)
         if auth_group_traffic:
             src_group = self.get_group_or_none(name)
-            sg.authorize('icmp', -1, -1, src_group=src_group)
-            sg.authorize('tcp', 1, 65535, src_group=src_group)
-            sg.authorize('udp', 1, 65535, src_group=src_group)
+            print src_group
+            sg.authorize('icmp', -1, -1, '115.146.0.0/16') #src_group=src_group)
+            sg.authorize('tcp', 1, 65535, '115.146.0.0/16') #src_group=src_group)
+            sg.authorize('udp', 1, 65535, '115.146.0.0/16') #src_group=src_group)
         return sg
 
     def get_all_security_groups(self, groupnames=[]):
@@ -309,7 +312,13 @@ class EasyEC2(EasyAWS):
         """
         Returns all security groups on this EC2 account
         """
-        return self.conn.get_all_security_groups(filters=filters)
+        #print 'filters ',  filters
+        groups=self.conn.get_all_security_groups(filters=filters)
+        groups_filtered=[]
+        for group in groups:
+          if group.name==filters['group-name']:
+            groups_filtered.append(group)
+        return groups_filtered
 
     def get_permission_or_none(self, group, ip_protocol, from_port, to_port,
                                cidr_ip=None):
@@ -942,7 +951,17 @@ class EasyEC2(EasyAWS):
         Raises exception.AMIDoesNotExist if unsuccessful
         """
         try:
-            return self.get_images(filters={'image-id': image_id})[0]
+            images = self.get_images(filters={'image-id': image_id})
+            #print images
+            images_filtered = []
+            for img in images:
+              #print img
+              if img.id==image_id:
+                images_filtered.append(img)
+            if len(images_filtered)>0:
+              return images_filtered[0]
+            else:
+              raise exception.AMIDoesNotExist(image_id)
         except boto.exception.EC2ResponseError, e:
             if e.error_code == "InvalidAMIID.NotFound":
                 raise exception.AMIDoesNotExist(image_id)
