@@ -1681,7 +1681,9 @@ class ClusterValidator(validators.Validator):
         master_image_id = cluster.master_image_id
         node_image_id = cluster.node_image_id
         conn = cluster.ec2
+        #print node_image_id
         image = conn.get_image_or_none(node_image_id)
+        #print image
         if not image or image.id != node_image_id:
             raise exception.ClusterValidationError(
                 'node_image_id %s does not exist' % node_image_id)
