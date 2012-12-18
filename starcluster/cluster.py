@@ -43,7 +43,7 @@ class ClusterManager(managers.Manager):
             cltag = self.get_tag_from_sg(clname)
             if not group:
                 group = self.ec2.get_security_group(clname)
-            cl = Cluster(ec2_conn=self.ec2, cluster_tag=cltag,
+            cl = Cluster(ec2_conn=self.ec2, s3_conn=self.s3, cluster_tag=cltag,
                          cluster_group=group)
             if load_receipt:
                 cl.load_receipt(load_plugins=load_plugins)
@@ -324,6 +324,7 @@ class ClusterManager(managers.Manager):
 class Cluster(object):
     def __init__(self,
                  ec2_conn=None,
+                 s3_conn=None,
                  spot_bid=None,
                  cluster_tag=None,
                  cluster_description=None,
@@ -352,6 +353,7 @@ class Cluster(object):
 
         now = time.strftime("%Y%m%d%H%M")
         self.ec2 = ec2_conn
+        self.s3 = s3_conn
         self.spot_bid = spot_bid
         self.cluster_tag = cluster_tag
         self.cluster_description = cluster_description
@@ -569,8 +571,19 @@ class Cluster(object):
                 sg = self.ec2.create_group(self._security_group,
                                            description=desc, auth_ssh=True,
                                            auth_group_traffic=True)
-                if not static.VERSION_TAG in sg.tags:
-                    sg.add_tag(static.VERSION_TAG, str(static.VERSION))
+                print 'sg.tags'
+                print sg.tags
+                log.info('Creating bucket for security group tags...')
+                sg_bucket = self.s3.get_or_create_bucket(sg.name)
+                sg_tags = []
+                keys = sg_bucket.list()
+                for key in keys:
+                  sg_tags.append(key.name)
+                if not static.VERSION_TAG in sg_tags:
+                    print 'going to add tag'
+                    #sg.add_tag(static.VERSION_TAG, str(static.VERSION))
+                    self.s3.add_file(sg.name, static.VERSION_TAG, str(static.VERSION))
+                    print 'added a tag'
                 core_settings = utils.dump_compress_encode(
                     dict(cluster_size=self.cluster_size,
                          master_image_id=self.master_image_id,
@@ -738,13 +751,17 @@ class Cluster(object):
         spot_bid = spot_bid or self.spot_bid
         if force_flat:
             spot_bid = None
+        print 'spot_bid', spot_bid
         cluster_sg = self.cluster_group.name
+        print 'cluster_sg', cluster_sg
         instance_type = instance_type or self.node_instance_type
         if not placement_group and instance_type in static.CLUSTER_TYPES:
             placement_group = self.placement_group.name
         image_id = image_id or self.node_image_id
         count = len(aliases) if not spot_bid else 1
+        print 'count' , count
         user_data = self._get_cluster_userdata(aliases)
+        print 'user_data', user_data
         kwargs = dict(price=spot_bid, instance_type=instance_type,
                       min_count=count, max_count=count, count=count,
                       key_name=self.keyname, security_groups=[cluster_sg],
@@ -948,6 +965,7 @@ class Cluster(object):
         log.info("Launching a %d-node cluster..." % self.cluster_size)
         mtype = self.master_instance_type or self.node_instance_type
         self.master_instance_type = mtype
+        print 'spot_bid', self.spot_bid
         if self.spot_bid:
             self._create_spot_cluster()
         else:
@@ -976,7 +994,9 @@ class Cluster(object):
                 master_response = self.create_nodes(aliases, image_id=image,
                                                     instance_type=type,
                                                     force_flat=True)[0]
+                print 'master_response', master_response
                 zone = master_response.instances[0].placement
+                print 'zone', zone
         lmap.pop(master_map)
         if self.cluster_size <= 1:
             return

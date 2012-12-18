@@ -1328,6 +1328,12 @@ class EasyS3(EasyAWS):
         bucket = self.get_bucket(bucketname)
         files = [file for file in bucket.list()]
         return files
+    
+    def add_file(self, bucket_name, file_name, content)
+        bucket = self.get_bucket(bucketname)
+        key = Key(bucket)
+        key.key = file_name
+        key.set_contents_from_string(content)
 
 if __name__ == "__main__":
     from starcluster.config import get_easy_ec2
