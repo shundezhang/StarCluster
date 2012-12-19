@@ -60,6 +60,8 @@ class ClusterManager(managers.Manager):
             cltag = self.get_tag_from_sg(clname)
             if not group:
                 group = self.ec2.get_security_group(clname)
+            print self.ec2
+            print self.s3
             cl = Cluster(ec2_conn=self.ec2, s3_conn=self.s3, cluster_tag=cltag,
                          cluster_group=group)
             if load_receipt:
@@ -566,7 +568,9 @@ class Cluster(object):
         master node's user data.
         """
         try:
-            tags = self.cluster_group.tags
+            #tags = self.cluster_group.tags
+            tags = self.s3.get_files_as_map(self.cluster_group.name)
+            print 'tags', tags
             version = tags.get(static.VERSION_TAG, '')
             if utils.program_version_greater(version, static.VERSION):
                 d = dict(cluster=self.cluster_tag, old_version=static.VERSION,
@@ -650,7 +654,7 @@ class Cluster(object):
                     print 'going to add tag'
                     #sg.add_tag(static.VERSION_TAG, str(static.VERSION))
                     self.s3.add_file(sg.name, static.VERSION_TAG, str(static.VERSION))
-                    print 'added a tag'
+                    print 'added version tag'
                 core_settings = utils.dump_compress_encode(
                     dict(cluster_size=self.cluster_size,
                          master_image_id=self.master_image_id,
@@ -660,15 +664,15 @@ class Cluster(object):
                          disable_queue=self.disable_queue,
                          disable_cloudinit=self.disable_cloudinit),
                     use_json=True)
-                if not static.CORE_TAG in sg.tags:
-                    sg.add_tag('@sc-core', core_settings)
+                if not static.CORE_TAG in sg_tags:
+                    self.s3.add_file(sg.name, static.CORE_TAG, core_settings)
                 user_settings = utils.dump_compress_encode(
                     dict(cluster_user=self.cluster_user,
                          cluster_shell=self.cluster_shell,
                          keyname=self.keyname,
                          spot_bid=self.spot_bid), use_json=True)
-                if not static.USER_TAG in sg.tags:
-                    sg.add_tag('@sc-user', user_settings)
+                if not static.USER_TAG in sg_tags:
+                    self.s3.add_file(sg.name, static.USER_TAG, user_settings)
             ssh_port = static.DEFAULT_SSH_PORT
             for p in self.permissions:
                 perm = self.permissions.get(p)
@@ -710,9 +714,21 @@ class Cluster(object):
     @property
     def nodes(self):
         states = ['pending', 'running', 'stopping', 'stopped']
-        filters = {'instance-state-name': states,
-                   'instance.group-name': self._security_group}
-        nodes = self.ec2.get_all_instances(filters=filters)
+        filters = {'group-name': self._security_group,
+                   'instance-state-name': states}
+        all_nodes = self.ec2.get_all_instances(filters=filters)
+        nodes = []
+        for node in all_nodes:
+          sg_names = []
+          #print node.groups
+          for sec_group in node.groups:
+            #print sec_group.__dict__
+            sg_names.append(sec_group.id)
+          #print sg_names
+          #print '_security_group', self._security_group
+          if self._security_group in sg_names:
+            nodes.append(node)
+        #print nodes
         # remove any cached nodes not in the current node list from EC2
         current_ids = [n.id for n in nodes]
         remove_nodes = [n for n in self._nodes if n.id not in current_ids]
@@ -729,8 +745,11 @@ class Cluster(object):
                 enode.instance = node
             else:
                 log.debug('adding node %s to self._nodes list' % node.id)
+                print node.get_attribute('userData')
                 n = Node(node, self.key_location)
+                #print n
                 if n.is_master():
+                    print 'n is master'
                     self._master = n
                     self._nodes.insert(0, n)
                 else:
@@ -1316,7 +1335,8 @@ class Cluster(object):
         interval = self.refresh_interval
         log.info("%s %s" % (msg, "(updating every %ds)" % interval))
         try:
-            self.wait_for_active_spots()
+            #self.wait_for_active_spots()
+            self.wait_for_active_instances()
             self.wait_for_running_instances()
             self.wait_for_ssh()
         except Exception:

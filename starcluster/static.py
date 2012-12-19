@@ -180,6 +180,7 @@ AWS_SETTINGS = {
     'ec2_cert': (str, False, None, None, None),
     'ec2_private_key': (str, False, None, None, None),
     'aws_port': (int, False, None, None, None),
+    'aws_s3_port': (int, False, None, None, None),
     'aws_ec2_path': (str, False, '/', None, None),
     'aws_s3_path': (str, False, '/', None, None),
     'aws_is_secure': (bool, False, True, None, None),
