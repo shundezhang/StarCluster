@@ -12,6 +12,7 @@ import tempfile
 import boto
 import boto.ec2
 import boto.s3.connection
+from boto.s3.key import Key
 
 from starcluster import image
 from starcluster import utils
@@ -457,6 +458,8 @@ class EasyEC2(EasyAWS):
         return image_name
 
     def get_instance_user_data(self, instance_id):
+        print 'instance_id', instance_id
+        print 'conn' , self.conn
         try:
             attrs = self.conn.get_instance_attribute(instance_id, 'userData')
             user_data = attrs.get('userData', '') or ''
@@ -1241,11 +1244,11 @@ class EasyS3(EasyAWS):
     _calling_format = boto.s3.connection.OrdinaryCallingFormat()
 
     def __init__(self, aws_access_key_id, aws_secret_access_key,
-                 aws_s3_path='/', aws_port=None, aws_is_secure=True,
+                 aws_s3_path='/', aws_s3_port=None, aws_is_secure=True,
                  aws_s3_host=DefaultHost, aws_proxy=None, aws_proxy_port=None,
                  aws_proxy_user=None, aws_proxy_pass=None, **kwargs):
         kwargs = dict(is_secure=aws_is_secure, host=aws_s3_host or
-                      self.DefaultHost, port=aws_port, path=aws_s3_path,
+                      self.DefaultHost, port=aws_s3_port, path=aws_s3_path,
                       proxy=aws_proxy, proxy_port=aws_proxy_port,
                       proxy_user=aws_proxy_user, proxy_pass=aws_proxy_pass)
         if aws_s3_host:
@@ -1329,11 +1332,25 @@ class EasyS3(EasyAWS):
         files = [file for file in bucket.list()]
         return files
     
-    def add_file(self, bucket_name, file_name, content)
-        bucket = self.get_bucket(bucketname)
+    def add_file(self, bucket_name, file_name, content):
+        bucket = self.get_bucket(bucket_name)
         key = Key(bucket)
         key.key = file_name
         key.set_contents_from_string(content)
+
+    def get_file(self, bucket_name, file_name):
+        bucket = self.get_bucket(bucket_name)
+        key = Key(bucket)
+        key.key = file_name
+        return key.get_contents_as_string()
+
+    def get_files_as_map(self, bucket_name):
+        bucket = self.get_bucket(bucket_name)
+        keys = {}
+	for key in bucket.list():
+	    keys[key.name]=key.get_contents_as_string()
+	return keys
+
 
 if __name__ == "__main__":
     from starcluster.config import get_easy_ec2

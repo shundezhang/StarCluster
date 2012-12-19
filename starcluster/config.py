@@ -590,7 +590,7 @@ class StarClusterConfig(object):
         return self.aws
 
     def get_cluster_template(self, template_name, tag_name=None,
-                             ec2_conn=None):
+                             ec2_conn=None, s3_conn=None):
         """
         Returns Cluster instance configured with the settings in the
         config file.
@@ -609,7 +609,9 @@ class StarClusterConfig(object):
                                                        debug=DEBUG_CONFIG)
             if not ec2_conn:
                 ec2_conn = self.get_easy_ec2()
-            clust = Cluster(ec2_conn, **kwargs)
+            if not s3_conn:
+                s3_conn = self.get_easy_s3()
+            clust = Cluster(ec2_conn, s3_conn, **kwargs)
             return clust
         except KeyError:
             raise exception.ClusterTemplateDoesNotExist(template_name)
