@@ -148,7 +148,7 @@ HVM_TYPES = CLUSTER_TYPES + HI_IO_TYPES + HI_STORAGE_TYPES + SEC_GEN_TYPES
 
 PLACEMENT_GROUP_TYPES = CLUSTER_TYPES + HI_IO_TYPES + HI_STORAGE_TYPES
 
-CLUSTER_REGIONS = ['us-east-1', 'us-west-2', 'eu-west-1']
+CLUSTER_REGIONS = ['us-east-1', 'us-west-2', 'eu-west-1', 'melbourne']
 
 PROTOCOLS = ['tcp', 'udp', 'icmp']
 

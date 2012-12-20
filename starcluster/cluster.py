@@ -737,6 +737,7 @@ class Cluster(object):
         # update node cache with latest instance data from EC2
         existing_nodes = dict([(n.id, n) for n in self._nodes])
         log.debug('existing nodes: %s' % existing_nodes)
+        i=len(existing_nodes)
         for node in nodes:
             if node.id in existing_nodes:
                 log.debug('updating existing node %s in self._nodes' % node.id)
@@ -745,9 +746,11 @@ class Cluster(object):
                 enode.instance = node
             else:
                 log.debug('adding node %s to self._nodes list' % node.id)
-                print node.get_attribute('userData')
-                n = Node(node, self.key_location)
+                #print node.get_attribute('userData')
+                print 'launch_index', i
+                n = Node(node, self.key_location, s3=self.s3, launch_index=i)
                 #print n
+                i=i+1
                 if n.is_master():
                     print 'n is master'
                     self._master = n
@@ -760,9 +763,18 @@ class Cluster(object):
 
     def get_nodes_or_raise(self):
         nodes = self.nodes
+        print 'nodes', nodes
         if not nodes:
-            filters = {'instance.group-name': self._security_group}
-            terminated_nodes = self.ec2.get_all_instances(filters=filters)
+            filters = {'group-name': self._security_group}
+            all_nodes = self.ec2.get_all_instances(filters=filters)
+            terminated_nodes = []
+            for node in all_nodes:
+                sg_names = []
+                for sg in node.groups:
+                  sg_names.append(sg.id)
+                if self._security_group.name in sg_names:
+                  terminated_nodes.append(node)
+            print 'terminated_nodes', terminated_nodes
             raise exception.NoClusterNodesFound(terminated_nodes)
         return nodes
 
@@ -871,6 +883,7 @@ class Cluster(object):
                       placement=zone or getattr(self.zone, 'name', None),
                       user_data=user_data,
                       placement_group=placement_group)
+        self.s3.add_file(cluster_sg, 'user-data', user_data)
         resvs = []
         if spot_bid:
             for alias in aliases:
@@ -1320,8 +1333,13 @@ class Cluster(object):
         """
         log.info("Waiting for SSH to come up on all nodes...")
         nodes = nodes or self.get_nodes_or_raise()
+<<<<<<< HEAD
         self.pool.map(lambda n: n.wait(interval=self.refresh_interval), nodes,
                       jobid_fn=lambda n: n.alias)
+=======
+        print 'waiting for nodes', nodes
+        self.pool.map(lambda n: n.wait(interval=self.refresh_interval), nodes)
+>>>>>>> working now
 
     @print_timing("Waiting for cluster to come up")
     def wait_for_cluster(self, msg="Waiting for cluster to come up..."):
@@ -1362,7 +1380,16 @@ class Cluster(object):
         states = filter(lambda x: x != 'terminated', static.INSTANCE_STATES)
         filters = {'instance.group-name': self._security_group,
                    'instance-state-name': states}
-        insts = self.ec2.get_all_instances(filters=filters)
+        all_insts = self.ec2.get_all_instances(filters=filters)
+        #print 'all_insts', all_insts
+        insts = []
+        for node in all_insts:
+            sg_names = []
+            for sg in node.groups:
+                sg_names.append(sg.id)
+            if self._security_group in sg_names:
+                insts.append(node)
+        print 'insts', insts
         return len(insts) == 0
 
     def attach_volumes_to_master(self):
@@ -1459,6 +1486,7 @@ class Cluster(object):
         try:
             self.run_plugins(method_name="on_shutdown", reverse=True)
         except exception.MasterDoesNotExist, e:
+<<<<<<< HEAD
             if force:
                 log.warn("Cannot run plugins: %s" % e)
             else:
@@ -1472,11 +1500,28 @@ class Cluster(object):
                 log.info("Canceling spot instance request: %s" % spot.id)
                 spot.cancel()
         s = utils.get_spinner("Waiting for cluster to terminate...")
+=======
+            log.warn("Cannot run plugins: %s" % e)
+        #self.detach_volumes()
+        nodes = self.nodes
+        for node in nodes:
+            node.terminate()
+        #for spot in self.spot_requests:
+        #    if spot.state not in ['cancelled', 'closed']:
+        #        log.info("Canceling spot instance request: %s" % spot.id)
+        #        spot.cancel()
+        sg = self.ec2.get_group_or_none(self._security_group)
+        print sg
+        #pg = self.ec2.get_placement_group_or_none(self._security_group)
+        #print pg
+        s = self.get_spinner("Waiting for cluster to terminate...")
+>>>>>>> working now
         try:
             while not self.is_cluster_terminated():
                 time.sleep(5)
         finally:
             s.stop()
+<<<<<<< HEAD
         region = self.ec2.region.name
         if region in static.CLUSTER_REGIONS:
             pg = self.ec2.get_placement_group_or_none(self._security_group)
@@ -1484,8 +1529,24 @@ class Cluster(object):
                 log.info("Removing %s placement group" % pg.name)
                 pg.delete()
         sg = self.ec2.get_group_or_none(self._security_group)
+=======
+        #if pg:
+        #    log.info("Removing %s placement group" % pg.name)
+        #    pg.delete()
+        self.delete_bucket(sg.name)
+>>>>>>> working now
         if sg:
             self.ec2.delete_group(sg)
+
+    def delete_bucket(self, sg_name):
+        """
+        Delete the bucket created to store metadata
+        sg_name - security group name, used as the bucket name
+        """
+        bucket = self.s3.get_bucket(sg_name)
+        for key in bucket.list():
+            bucket.delete_key(key.name)
+        bucket.delete()
 
     def start(self, create=True, create_only=False, validate=True,
               validate_only=False, validate_running=False):
@@ -1550,7 +1611,9 @@ class Cluster(object):
         StarCluster setup routines followed by any additional plugin setup
         routines
         """
+        print 'before wait_for cluster'
         self.wait_for_cluster()
+        print 'after wait_for_cluster'
         self._setup_cluster()
 
     @print_timing("Configuring cluster")
@@ -1816,6 +1879,7 @@ class ClusterValidator(validators.Validator):
         setting labels in the config file.
         """
         image = self.cluster.ec2.get_image_or_none(image_id)
+        print 'image', image.__dict__
         if not image:
             raise exception.ClusterValidationError('Image %s does not exist' %
                                                    image_id)
@@ -1834,7 +1898,7 @@ class ClusterValidator(validators.Validator):
                 "virtual machine (HVM) images. Image '%s' is not an HVM "
                 "image." % (instance_type, image_id))
         instance_platforms = static.INSTANCE_TYPES[instance_type]
-        if image_platform not in instance_platforms:
+        if image_platform and image_platform not in instance_platforms:
             error_msg = "Instance type %(instance_type)s is for an " \
                         "%(instance_platform)s platform while " \
                         "%(image_id)s is an %(image_platform)s platform"
