@@ -62,9 +62,10 @@ class Node(object):
 
     'user' keyword optionally specifies user to ssh as (defaults to root)
     """
-    def __init__(self, instance, key_location, alias=None, user='root'):
+    def __init__(self, instance, key_location, alias=None, user='root', s3=None, launch_index=0):
         self.instance = instance
         self.ec2 = awsutils.EasyEC2(None, None)
+        self._s3 = s3
         self.ec2._conn = instance.connection
         self.key_location = key_location
         self.user = user
@@ -74,6 +75,7 @@ class Node(object):
         self._num_procs = None
         self._memory = None
         self._user_data = None
+        self._launch_index = launch_index
 
     def __repr__(self):
         return '<Node: %s (%s)>' % (self.alias, self.id)
@@ -83,7 +85,10 @@ class Node(object):
         last_try = tries[-1]
         for i in tries:
             try:
-                user_data = self.ec2.get_instance_user_data(self.id)
+                #user_data = self.ec2.get_instance_user_data(self.id)
+                sg_name = self.ec2.get_all_instances([self.id])[0].groups[0].id
+                user_data = self._s3.get_file(sg_name, 'user-data')
+                #print user_data
                 return user_data
             except exception.InstanceDoesNotExist:
                 if i == last_try:
@@ -98,6 +103,7 @@ class Node(object):
         if not self._user_data:
             raw = self._get_user_data()
             self._user_data = userdata.unbundle_userdata(raw)
+            print self._user_data
         return self._user_data
 
     @property
@@ -108,11 +114,13 @@ class Node(object):
         exception is raised.
         """
         if not self._alias:
+            #print 'self', self.__dict__
             alias = self.tags.get('alias')
             if not alias:
+                print 'working out alias from user data'
                 aliasestxt = self.user_data.get(static.UD_ALIASES_FNAME)
                 aliases = aliasestxt.splitlines()[2:]
-                index = self.ami_launch_index
+                index = self._launch_index
                 try:
                     alias = aliases[index]
                 except IndexError:
@@ -159,7 +167,8 @@ class Node(object):
         return self.instance.tags
 
     def add_tag(self, key, value=None):
-        return self.instance.add_tag(key, value)
+        #return self.instance.add_tag(key, value)
+        return self._s3.add_file(self.instance.groups[0].id, self.instance.id+key, value)
 
     def remove_tag(self, key, value=None):
         return self.instance.remove_tag(key, value)
@@ -933,14 +942,17 @@ class Node(object):
         return True
 
     def update(self):
-        res = self.ec2.get_all_instances(filters={'instance-id': self.id})
+        #res = self.ec2.get_all_instances(filters={'instance-id': self.id})
+        res = self.ec2.get_all_instances(instance_ids = [self.id])
+        print 'res', res
         self.instance = res[0]
         return self.state
 
     @property
     def ssh(self):
+        #print 'self.instance', self.instance.__dict__
         if not self._ssh:
-            self._ssh = sshutils.SSHClient(self.instance.dns_name,
+            self._ssh = sshutils.SSHClient(self.instance.ip_address,
                                            username=self.user,
                                            private_key=self.key_location)
         return self._ssh
@@ -974,7 +986,7 @@ class Node(object):
             if forward_agent:
                 sshopts += ' -A'
             ssh_cmd = static.SSH_TEMPLATE % dict(opts=sshopts, user=user,
-                                                 host=self.dns_name)
+                                                 host=self.ip_address)
             if command:
                 command = "'source /etc/profile && %s'" % command
                 ssh_cmd = ' '.join([ssh_cmd, command])
