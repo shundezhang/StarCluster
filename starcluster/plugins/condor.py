@@ -29,9 +29,9 @@ class CondorPlugin(clustersetup.DefaultClusterSetup):
         node.ssh.execute('curl http://research.cs.wisc.edu/htcondor/yum/repo.d/htcondor-stable-rhel5.repo -o /etc/yum.repos.d/htcondor-stable-rhel6.repo')
         node.ssh.execute('yum install -y condor')
         condorcfg = node.ssh.remote_file(CONDOR_CFG, 'w')
-        daemon_list = "MASTER, STARTD, SCHEDD"
+        daemon_list = "MASTER, STARTD"
         if node.is_master():
-            daemon_list += ", COLLECTOR, NEGOTIATOR"
+            daemon_list += ", SCHEDD, COLLECTOR, NEGOTIATOR"
         ctx = dict(CONDOR_HOST='master', DAEMON_LIST=daemon_list,
                    FS_REMOTE_DIR=FS_REMOTE_DIR)
         condorcfg.write(condor.condor_tmpl % ctx)
