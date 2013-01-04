@@ -411,6 +411,11 @@ class Node(object):
         gid - optional group id to use when creating new user
         shell - optional shell assign to new user (default: bash)
         """
+        if self.is_master():
+            if self.ssh.path_exists('/dev/vdb1'):
+                self.ssh.execute('mount /dev/vdb1 /home', ignore_exit_status=True)
+            else:
+                self.ssh.execute('mount /dev/vdb /home', ignore_exit_status=True)
         if gid:
             self.ssh.execute('groupadd -o -g %s %s' % (gid, name))
         user_add_cmd = 'useradd -o '
@@ -637,9 +642,27 @@ class Node(object):
         self.ssh.remove_lines_from_file('/etc/exports', regex)
         self.ssh.execute('exportfs -fra')
 
+    def install_nfs(self):
+        log.info("Installing NFS packages on %s" % self.alias)
+        # install nfs server if not installed
+        self.package_install('nfs-utils nfs-utils-lib')
+        if self.package_provider == "yum":
+            self.ssh.execute('chkconfig --level 35 nfs on')
+        if self.package_provider == "yum":
+            self.ssh.execute('chkconfig --level 35 nfslock on')
+        if self.ssh.isfile('/etc/init.d/portmap') and self.package_provider == "yum":
+            self.ssh.execute('chkconfig --level 35 portmap on')
+        if self.ssh.isfile('/etc/init.d/rpcbind') and self.package_provider == "yum":
+            self.ssh.execute('chkconfig --level 35 rpcbind on')
+
     def start_nfs_server(self):
+        self.install_nfs()
         log.info("Starting NFS server on %s" % self.alias)
-        self.ssh.execute('/etc/init.d/portmap start')
+        # start nfs server
+        if self.ssh.isfile('/etc/init.d/portmap'):
+            self.ssh.execute('/etc/init.d/portmap start')
+        if self.ssh.isfile('/etc/init.d/rpcbind'):
+            self.ssh.execute('/etc/init.d/rpcbind start')
         self.ssh.execute('mount -t rpc_pipefs sunrpc /var/lib/nfs/rpc_pipefs/',
                          ignore_exit_status=True)
         self.ssh.execute('/etc/init.d/nfs start')
@@ -652,7 +675,11 @@ class Node(object):
         server_node - remote server node that is sharing the remote_paths
         remote_paths - list of remote paths to mount from server_node
         """
-        self.ssh.execute('/etc/init.d/portmap start')
+        self.install_nfs()
+        if self.ssh.isfile('/etc/init.d/portmap'):
+            self.ssh.execute('/etc/init.d/portmap start')
+        if self.ssh.isfile('/etc/init.d/rpcbind'):
+            self.ssh.execute('/etc/init.d/rpcbind start')
         # TODO: move this fix for xterm somewhere else
         self.ssh.execute('mount -t devpts none /dev/pts',
                          ignore_exit_status=True)
@@ -1057,7 +1084,7 @@ class Node(object):
         /usr/bin/apt exists on the node, and use apt if it exists. Otherwise
         test to see if /usr/bin/yum exists and use that.
         """
-        if self.ssh.isfile('/usr/bin/apt'):
+        if self.ssh.isfile('/usr/bin/apt-get'):
             return "apt"
         elif self.ssh.isfile('/usr/bin/yum'):
             return "yum"
