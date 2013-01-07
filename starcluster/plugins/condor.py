@@ -9,8 +9,13 @@ FS_REMOTE_DIR = '/home/._condor_tmp'
 class CondorPlugin(clustersetup.DefaultClusterSetup):
 
     def _add_condor_node(self, node):
-        node.ssh.execute('curl http://research.cs.wisc.edu/htcondor/yum/repo.d/htcondor-stable-rhel5.repo -o /etc/yum.repos.d/htcondor-stable-rhel6.repo')
-        node.ssh.execute('yum install -y condor')
+        if node.package_provider == "yum":
+            node.ssh.execute('curl http://research.cs.wisc.edu/htcondor/yum/repo.d/htcondor-stable-rhel6.repo -o /etc/yum.repos.d/htcondor-stable-rhel6.repo')
+            node.ssh.execute('yum install -y condor')
+        if node.package_provider == "apt":
+            node.ssh.execute('echo "deb http://research.cs.wisc.edu/htcondor/debian/stable/ squeeze contrib" >> /etc/apt/sources.list')
+            node.ssh.execute('apt-get -y update')
+            node.ssh.execute('apt-get -y --force-yes install condor')
         condorcfg = node.ssh.remote_file(CONDOR_CFG, 'w')
         daemon_list = "MASTER, STARTD"
         if node.is_master():

@@ -4,6 +4,7 @@ import stat
 import base64
 import posixpath
 import subprocess
+import string
 
 from starcluster import utils
 from starcluster import static
@@ -627,6 +628,8 @@ class Node(object):
                 if export_line not in contents:
                     etc_exports.write(export_line)
         etc_exports.close()
+        if self.ssh.isfile('/etc/init.d/nfs-kernel-server'):
+            self.ssh.execute('service nfs-kernel-server restart')
         self.ssh.execute('exportfs -fra')
 
     def stop_exporting_fs_to_nodes(self, nodes):
@@ -645,7 +648,10 @@ class Node(object):
     def install_nfs(self):
         log.info("Installing NFS packages on %s" % self.alias)
         # install nfs server if not installed
-        self.package_install('nfs-utils nfs-utils-lib')
+        if self.package_provider == "yum":
+            self.package_install('nfs-utils nfs-utils-lib')
+        if self.package_provider == "apt":
+            self.package_install('nfs-kernel-server')
         if self.package_provider == "yum":
             self.ssh.execute('chkconfig --level 35 nfs on')
         if self.package_provider == "yum":
@@ -665,7 +671,10 @@ class Node(object):
             self.ssh.execute('/etc/init.d/rpcbind start')
         self.ssh.execute('mount -t rpc_pipefs sunrpc /var/lib/nfs/rpc_pipefs/',
                          ignore_exit_status=True)
-        self.ssh.execute('/etc/init.d/nfs start')
+        if self.ssh.isfile('/etc/init.d/nfs'):
+            self.ssh.execute('/etc/init.d/nfs start')
+        if self.ssh.isfile('/etc/init.d/nfs-kernel-server'):
+            self.ssh.execute('service nfs-kernel-server start')
         self.ssh.execute('/usr/sbin/exportfs -fra')
 
     def mount_nfs_shares(self, server_node, remote_paths):
@@ -700,8 +709,13 @@ class Node(object):
         self.ssh.remove_lines_from_file('/etc/fstab', remote_paths_regex)
         fstab = self.ssh.remote_file('/etc/fstab', 'a')
         for path in remote_paths:
-            fstab.write('%s:%s %s nfs vers=3,user,rw,exec,noauto 0 0\n' %
+            if self.package_provider == "yum":
+                fstab.write('%s:%s %s nfs vers=3,user,rw,exec,noauto 0 0\n' %
                         (server_node.alias, path, path))
+            if self.package_provider == "apt":
+                fstab.write('%s:%s %s nfs vers=4,user,rw,exec,noauto 0 0\n' %
+                        (server_node.alias, path, path))
+
         fstab.close()
         for path in remote_paths:
             if not self.ssh.path_exists(path):
@@ -765,6 +779,9 @@ class Node(object):
         """
         self.remove_from_etc_hosts(nodes)
         host_file = self.ssh.remote_file('/etc/hosts', 'a')
+        if self.is_master():
+            # hardcoded for nectar
+            print >> host_file, "%s vm-%s.rc.melbourne.nectar.org.au" % (self.ip_address, string.replace(self.ip_address,'.','-'))
         for node in nodes:
             print >> host_file, node.get_hosts_entry()
         host_file.close()
