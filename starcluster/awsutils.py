@@ -102,11 +102,17 @@ class EasyEC2(EasyAWS):
                  aws_port=None, aws_region_name=None, aws_is_secure=True,
                  aws_region_host=None, aws_proxy=None, aws_proxy_port=None,
                  aws_proxy_user=None, aws_proxy_pass=None,
-                 aws_validate_certs=True, **kwargs):
+                 aws_validate_certs=True, 
+                 aws_proxy_user=None, aws_proxy_pass=None, aws_cell=None, **kwargs):
         aws_region = None
         if aws_region_name and aws_region_host:
+	    print aws_region_name, aws_region_host
             aws_region = boto.ec2.regioninfo.RegionInfo(
                 name=aws_region_name, endpoint=aws_region_host)
+	self.cell_name=None
+        if aws_cell:
+	    self.cell_name=aws_cell
+	    print "using cell", aws_cell
         kwargs = dict(is_secure=aws_is_secure, region=aws_region,
                       port=aws_port, path=aws_ec2_path, proxy=aws_proxy,
                       proxy_port=aws_proxy_port, proxy_user=aws_proxy_user,
@@ -526,15 +532,19 @@ class EasyEC2(EasyAWS):
                       max_count=1, key_name=None, security_groups=None,
                       placement=None, user_data=None, placement_group=None,
                       block_device_map=None):
+	if self.cell_name:
+	    placement=self.cell_name
+	print "run instance %s %s %d %d %s %s %s %s"%(image_id,instance_type,min_count,max_count,key_name,security_groups,placement,placement_group)
         return self.conn.run_instances(image_id, instance_type=instance_type,
                                        min_count=min_count,
                                        max_count=max_count,
                                        key_name=key_name,
                                        security_groups=security_groups,
                                        placement=placement,
-                                       user_data=user_data,
-                                       placement_group=placement_group,
                                        block_device_map=block_device_map)
+                                       #user_data=user_data,
+                                       user_data=None,
+                                       placement_group=placement_group)
 
     def create_image(self, instance_id, name, description=None,
                      no_reboot=False):
@@ -1461,10 +1471,12 @@ class EasyS3(EasyAWS):
         Returns bucket object representing S3 bucket
         """
         try:
+	    print "bucket_name %s" % bucketname
             return self.conn.get_bucket(bucketname)
         except boto.exception.S3ResponseError, e:
             if e.error_code == "NoSuchBucket":
                 raise exception.BucketDoesNotExist(bucketname)
+	    print "failed to get bucket %s" % bucketname
             raise
 
     def list_bucket(self, bucketname):
@@ -1494,6 +1506,7 @@ class EasyS3(EasyAWS):
         bucket = self.get_bucket(bucket_name)
         key = Key(bucket)
         key.key = file_name
+	print "adding %s "%key
         key.set_contents_from_string(content)
 
     def get_file(self, bucket_name, file_name):
@@ -1506,6 +1519,7 @@ class EasyS3(EasyAWS):
         bucket = self.get_bucket(bucket_name)
         keys = {}
 	for key in bucket.list():
+	    print "getting %s"%key
 	    keys[key.name]=key.get_contents_as_string()
 	return keys
 
