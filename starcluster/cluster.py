@@ -41,9 +41,9 @@ class ClusterManager(managers.Manager):
         try:
             clname = self._get_cluster_name(cluster_name)
             cltag = self.get_tag_from_sg(clname)
+            print self.ec2
             if not group:
                 group = self.ec2.get_security_group(clname)
-            print self.ec2
             print self.s3
             cl = Cluster(ec2_conn=self.ec2, s3_conn=self.s3, cluster_tag=cltag,
                          cluster_group=group)
@@ -792,7 +792,7 @@ class Cluster(object):
         count = len(aliases) if not spot_bid else 1
         print 'count' , count
         user_data = self._get_cluster_userdata(aliases)
-        print 'user_data', user_data
+        #print 'user_data', user_data
         kwargs = dict(price=spot_bid, instance_type=instance_type,
                       min_count=count, max_count=count, count=count,
                       key_name=self.keyname, security_groups=[cluster_sg],
