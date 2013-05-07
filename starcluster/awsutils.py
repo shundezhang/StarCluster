@@ -266,6 +266,9 @@ class EasyEC2(EasyAWS):
             sg.authorize('icmp', -1, -1, '115.146.0.0/16') #src_group=src_group)
             sg.authorize('tcp', 1, 65535, '115.146.0.0/16') #src_group=src_group)
             sg.authorize('udp', 1, 65535, '115.146.0.0/16') #src_group=src_group)
+            sg.authorize('icmp', -1, -1, '118.138.240.0/21') #src_group=src_group)
+            sg.authorize('tcp', 1, 65535, '118.138.240.0/21') #src_group=src_group)
+            sg.authorize('udp', 1, 65535, '118.138.240.0/21') #src_group=src_group)
         return sg
 
     def get_all_security_groups(self, groupnames=[]):
