@@ -115,7 +115,7 @@ class Node(object):
         exception is raised.
         """
         if not self._alias:
-            #print 'self', self.__dict__
+            print 'self', self.__dict__
             alias = self.tags.get('alias')
             if not alias:
                 print 'working out alias from user data'
@@ -676,6 +676,8 @@ class Node(object):
         if self.ssh.isfile('/etc/init.d/nfs-kernel-server'):
             self.ssh.execute('service nfs-kernel-server start')
         self.ssh.execute('/usr/sbin/exportfs -fra')
+	# stop iptables, use the cloud's security group to protect
+        self.ssh.execute('/etc/init.d/iptables stop', ignore_exit_status=True)
 
     def mount_nfs_shares(self, server_node, remote_paths):
         """
