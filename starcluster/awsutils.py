@@ -262,7 +262,7 @@ class EasyEC2(EasyAWS):
             sg.authorize('tcp', ssh_port, ssh_port, static.WORLD_CIDRIP)
         if auth_group_traffic:
             src_group = self.get_group_or_none(name)
-            print src_group
+            #print src_group
             sg.authorize('icmp', -1, -1, '115.146.0.0/16') #src_group=src_group)
             sg.authorize('tcp', 1, 65535, '115.146.0.0/16') #src_group=src_group)
             sg.authorize('udp', 1, 65535, '115.146.0.0/16') #src_group=src_group)
@@ -1545,10 +1545,10 @@ class EasyS3(EasyAWS):
 	for key in bucket.list():
 	    if (pattern and re.match(pattern,key.name)) or not pattern:
 	        keys[key.name]=key.get_contents_as_string()
-	log.debug('keys %s'%keys)
+	#log.debug('keys %s'%keys)
 	return keys
 
-    def delet_file(self, bucketname, keyname):
+    def delete_file(self, bucketname, keyname):
 	bucket = self.get_bucket(bucketname)
 	bucket.delete_key(keyname)
 

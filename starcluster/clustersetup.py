@@ -331,6 +331,7 @@ class DefaultClusterSetup(ClusterSetup):
 
     def _get_nfs_export_paths(self):
         export_paths = ['/home']
+	log.debug('self._volumes %s' % self._volumes)
         for vol in self._volumes:
             vol = self._volumes[vol]
             mount_path = vol.get('mount_path')

@@ -62,6 +62,7 @@ class ClusterManager(managers.Manager):
             if not group:
                 group = self.ec2.get_security_group(clname)
             log.debug('s3 %s'% self.s3)
+	    log.debug('cfg %s' % self.cfg)
             cl = Cluster(ec2_conn=self.ec2, s3_conn=self.s3, cluster_tag=cltag,
                          cluster_group=group)
             if load_receipt:

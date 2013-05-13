@@ -27,4 +27,6 @@ __all__ = [
     'pypkginstaller',
     'xvfb',
     'mpich2',
+    'condor',
+    'torque',
 ]
