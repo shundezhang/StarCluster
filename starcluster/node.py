@@ -105,7 +105,9 @@ class Node(object):
             try:
                 #user_data = self.ec2.get_instance_user_data(self.id)
                 sg_name = self.ec2.get_all_instances([self.id])[0].groups[0].id
-                user_data = self._s3.get_file(sg_name, 'user-data')
+		log.debug("filename: %suser-data"%self.id)
+                user_data = self._s3.get_file(sg_name, self.id+'user-data')
+                #user_data = self._s3.get_file(sg_name, 'user-data')
                 #print user_data
                 return user_data
             except exception.InstanceDoesNotExist:
@@ -144,10 +146,15 @@ class Node(object):
             if not alias:
                 print 'working out alias from user data'
                 aliasestxt = self.user_data.get(static.UD_ALIASES_FNAME)
+		print 'aliasestxt', aliasestxt
                 aliases = aliasestxt.splitlines()[2:]
+		print 'aliases', aliases
                 index = self._launch_index
+		print 'index',index
                 try:
                     alias = aliases[index]
+		    # index is always 1
+                    #alias = aliases[0]
                 except IndexError:
                     alias = None
                     log.debug("invalid aliases file in user_data:\n%s" %
@@ -200,14 +207,22 @@ class Node(object):
 
     @property
     def tags(self):
-        return self.instance.tags
+        #return self.instance.tags
+	tags_files=self._s3.get_files_as_map(self.instance.groups[0].id, self.instance.id+".*")
+	tags={}
+	for t in tags_files.keys():
+	    tags[t.replace(self.instance.id,'')]=tags_files.get(t)
+	log.debug("tags of %s: %s"%(self.instance.id,tags))
+	return tags
 
     def add_tag(self, key, value=None):
+	log.debug("add_tag %s=%s"%(key,value))
         #return self.instance.add_tag(key, value)
         return self._s3.add_file(self.instance.groups[0].id, self.instance.id+key, value)
 
     def remove_tag(self, key, value=None):
-        return self.instance.remove_tag(key, value)
+        #return self.instance.remove_tag(key, value)
+	self._s3.delete_file(self.instance.groups[0].id, self.instance.id+key)
 
     @property
     def groups(self):
@@ -887,6 +902,8 @@ class Node(object):
         the case of EBS backed instances
         """
         attached_vols = {}
+	if not self.block_device_mapping:
+	    return attached_vols
         attached_vols.update(self.block_device_mapping)
         if self.is_ebs_backed():
             # exclude the root device from the list

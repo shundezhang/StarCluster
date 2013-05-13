@@ -237,6 +237,7 @@ class StarClusterConfig(object):
                 cp = InlineCommentsIgnoredConfigParser()
                 cp.readfp(mashup)
                 self._config = cp
+		log.debug('cp %s' %cp)
             except exception.ConfigSectionMissing:
                 pass
             return cp
@@ -558,6 +559,7 @@ class StarClusterConfig(object):
             self._load_instance_types(cluster_store[name])
             self._check_required(cl, self.cluster_settings,
                                  cluster_store[name])
+	log.debug('cluster_store %s' % cluster_store)
         return cluster_store
 
     def load(self):
