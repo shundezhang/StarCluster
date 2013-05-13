@@ -45,6 +45,7 @@ class ClusterManager(managers.Manager):
             if not group:
                 group = self.ec2.get_security_group(clname)
             log.debug('s3 %s'% self.s3)
+	    log.debug('cfg %s' % self.cfg)
             cl = Cluster(ec2_conn=self.ec2, s3_conn=self.s3, cluster_tag=cltag,
                          cluster_group=group)
             if load_receipt:
@@ -879,20 +880,20 @@ class Cluster(object):
                               spot_bid=spot_bid)
         self.wait_for_cluster(msg="Waiting for node(s) to come up...")
         log.debug("Adding node(s): %s" % aliases)
-        default_plugin = clustersetup.DefaultClusterSetup(
-            disable_threads=self.disable_threads, num_threads=self.num_threads)
-        if not self.disable_queue:
-            sge_plugin = sge.SGEPlugin(disable_threads=self.disable_threads,
-                                       num_threads=self.num_threads)
+        #default_plugin = clustersetup.DefaultClusterSetup(
+        #    disable_threads=self.disable_threads, num_threads=self.num_threads)
+        #if not self.disable_queue:
+        #    sge_plugin = sge.SGEPlugin(disable_threads=self.disable_threads,
+        #                               num_threads=self.num_threads)
         for alias in aliases:
             node = self.get_node_by_alias(alias)
-            default_plugin.on_add_node(node, self.nodes, self.master_node,
-                                       self.cluster_user, self.cluster_shell,
-                                       self.volumes)
-            if not self.disable_queue:
-                sge_plugin.on_add_node(node, self.nodes, self.master_node,
-                                       self.cluster_user, self.cluster_shell,
-                                       self.volumes)
+        #    default_plugin.on_add_node(node, self.nodes, self.master_node,
+        #                               self.cluster_user, self.cluster_shell,
+        #                               self.volumes)
+        #    if not self.disable_queue:
+        #        sge_plugin.on_add_node(node, self.nodes, self.master_node,
+        #                               self.cluster_user, self.cluster_shell,
+        #                               self.volumes)
             self.run_plugins(method_name="on_add_node", node=node)
 
     def remove_node(self, node, terminate=True):
@@ -905,24 +906,24 @@ class Cluster(object):
         """
         Remove a list of nodes from this cluster
         """
-        default_plugin = clustersetup.DefaultClusterSetup(
-            disable_threads=self.disable_threads, num_threads=self.num_threads)
-	log.debug('disable_queue: %s'%self.disable_queue)
-        if not self.disable_queue:
-            sge_plugin = sge.SGEPlugin(disable_threads=self.disable_threads,
-                                       num_threads=self.num_threads)
+        #default_plugin = clustersetup.DefaultClusterSetup(
+        #    disable_threads=self.disable_threads, num_threads=self.num_threads)
+	#log.debug('disable_queue: %s'%self.disable_queue)
+        #if not self.disable_queue:
+        #    sge_plugin = sge.SGEPlugin(disable_threads=self.disable_threads,
+        #                               num_threads=self.num_threads)
         for node in nodes:
             if node.is_master():
                 raise exception.InvalidOperation("cannot remove master node")
             self.run_plugins(method_name="on_remove_node",
                              node=node, reverse=True)
-            if not self.disable_queue:
-                sge_plugin.on_remove_node(node, self.nodes, self.master_node,
-                                          self.cluster_user,
-                                          self.cluster_shell, self.volumes)
-            default_plugin.on_remove_node(node, self.nodes, self.master_node,
-                                          self.cluster_user,
-                                          self.cluster_shell, self.volumes)
+        #    if not self.disable_queue:
+        #        sge_plugin.on_remove_node(node, self.nodes, self.master_node,
+        #                                  self.cluster_user,
+        #                                  self.cluster_shell, self.volumes)
+        #    default_plugin.on_remove_node(node, self.nodes, self.master_node,
+        #                                  self.cluster_user,
+        #                                  self.cluster_shell, self.volumes)
             if not terminate:
                 continue
             if node.spot_id:
@@ -1544,15 +1545,15 @@ class Cluster(object):
         log.info("Setting up the cluster...")
         if self.volumes:
             self.attach_volumes_to_master()
-        default_plugin = clustersetup.DefaultClusterSetup(
-            disable_threads=self.disable_threads, num_threads=self.num_threads)
-        default_plugin.run(self.nodes, self.master_node, self.cluster_user,
-                           self.cluster_shell, self.volumes)
-        if not self.disable_queue:
-            sge_plugin = sge.SGEPlugin(disable_threads=self.disable_threads,
-                                       num_threads=self.num_threads)
-            sge_plugin.run(self.nodes, self.master_node, self.cluster_user,
-                           self.cluster_shell, self.volumes)
+        #default_plugin = clustersetup.DefaultClusterSetup(
+        #    disable_threads=self.disable_threads, num_threads=self.num_threads)
+        #default_plugin.run(self.nodes, self.master_node, self.cluster_user,
+        #                   self.cluster_shell, self.volumes)
+        #if not self.disable_queue:
+        #    sge_plugin = sge.SGEPlugin(disable_threads=self.disable_threads,
+        #                               num_threads=self.num_threads)
+        #    sge_plugin.run(self.nodes, self.master_node, self.cluster_user,
+        #                   self.cluster_shell, self.volumes)
         self.run_plugins()
 
     def run_plugins(self, plugins=None, method_name="run", node=None,

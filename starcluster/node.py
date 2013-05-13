@@ -106,7 +106,7 @@ class Node(object):
         if not self._user_data:
             raw = self._get_user_data()
             self._user_data = userdata.unbundle_userdata(raw)
-            print self._user_data
+            #print self._user_data
         return self._user_data
 
     @property
@@ -117,16 +117,16 @@ class Node(object):
         exception is raised.
         """
         if not self._alias:
-            print 'self', self.__dict__
+            #print 'self', self.__dict__
             alias = self.tags.get('alias')
             if not alias:
-                print 'working out alias from user data'
+                #print 'working out alias from user data'
                 aliasestxt = self.user_data.get(static.UD_ALIASES_FNAME)
-		print 'aliasestxt', aliasestxt
+		#print 'aliasestxt', aliasestxt
                 aliases = aliasestxt.splitlines()[2:]
-		print 'aliases', aliases
+		#print 'aliases', aliases
                 index = self._launch_index
-		print 'index',index
+		#print 'index',index
                 try:
                     alias = aliases[index]
 		    # index is always 1
@@ -953,6 +953,9 @@ class Node(object):
         into a 'terminated' state.
         """
         log.info("Terminating node: %s (%s)" % (self.alias, self.id))
+	tags_files=self._s3.get_files_as_map(self.instance.groups[0].id, self.instance.id+".*")
+        for t in tags_files.keys():
+	    self._s3.delete_file(self.instance.groups[0].id, t)
         return self.instance.terminate()
 
     def shutdown(self):
@@ -1007,7 +1010,7 @@ class Node(object):
     def update(self):
         #res = self.ec2.get_all_instances(filters={'instance-id': self.id})
         res = self.ec2.get_all_instances(instance_ids = [self.id])
-        print 'res', res
+        log.debug('res %s' % res)
         self.instance = res[0]
         return self.state
 

@@ -6,4 +6,6 @@ __all__ = [
     'pkginstaller',
     'xvfb',
     'mpich',
+    'condor',
+    'torque',
 ]

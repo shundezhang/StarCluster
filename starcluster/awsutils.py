@@ -172,25 +172,25 @@ class EasyEC2(EasyAWS):
         log.info("Creating security group %s..." % name)
         #print description
         sg = self.conn.create_security_group(name, description)
-        print auth_ssh, auth_group_traffic
+        #print auth_ssh, auth_group_traffic
         if auth_ssh:
             ssh_port = static.DEFAULT_SSH_PORT
             sg.authorize('tcp', ssh_port, ssh_port, static.WORLD_CIDRIP)
         if auth_group_traffic:
             src_group = self.get_group_or_none(name)
-            print src_group
+            #print src_group
             sg.authorize('icmp', -1, -1, '115.146.0.0/16') #src_group=src_group)
-            print '1'
+            #print '1'
             sg.authorize('tcp', 1, 65535, '115.146.0.0/16') #src_group=src_group)
-            print '2'
+            #print '2'
             sg.authorize('udp', 1, 65535, '115.146.0.0/16') #src_group=src_group)
-            print '3'
+            #print '3'
             sg.authorize('icmp', -1, -1, '118.138.240.0/21') #src_group=src_group)
-            print '1'
+            #print '1'
             sg.authorize('tcp', 1, 65535, '118.138.240.0/21') #src_group=src_group)
-            print '2'
+            #print '2'
             sg.authorize('udp', 1, 65535, '118.138.240.0/21') #src_group=src_group)
-            print '3'
+            #print '3'
         return sg
 
     def get_all_security_groups(self, groupnames=[]):
@@ -1389,10 +1389,10 @@ class EasyS3(EasyAWS):
 	for key in bucket.list():
 	    if (pattern and re.match(pattern,key.name)) or not pattern:
 	        keys[key.name]=key.get_contents_as_string()
-	log.debug('keys %s'%keys)
+	#log.debug('keys %s'%keys)
 	return keys
 
-    def delet_file(self, bucketname, keyname):
+    def delete_file(self, bucketname, keyname):
 	bucket = self.get_bucket(bucketname)
 	bucket.delete_key(keyname)
 
