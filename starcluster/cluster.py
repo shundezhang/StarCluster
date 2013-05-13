@@ -41,10 +41,10 @@ class ClusterManager(managers.Manager):
         try:
             clname = self._get_cluster_name(cluster_name)
             cltag = self.get_tag_from_sg(clname)
-            print self.ec2
+            log.debug('ec2 %s'% self.ec2)
             if not group:
                 group = self.ec2.get_security_group(clname)
-            print self.s3
+            log.debug('s3 %s'% self.s3)
             cl = Cluster(ec2_conn=self.ec2, s3_conn=self.s3, cluster_tag=cltag,
                          cluster_group=group)
             if load_receipt:
@@ -204,7 +204,7 @@ class ClusterManager(managers.Manager):
         """
         Return all security groups on EC2 that start with '@sc-'
         """
-        glob = static.SECURITY_GROUP_TEMPLATE % '*'
+        glob = static.SECURITY_GROUP_PREFIX + '-(.*)'
         sgs = self.ec2.get_security_groups(filters={'group-name': glob})
         return sgs
 
@@ -280,7 +280,8 @@ class ClusterManager(managers.Manager):
                               (vol_id, node_id, dev, status))
             else:
                 print 'EBS volumes: N/A'
-            spot_reqs = cl.spot_requests
+            spot_reqs = False
+#cl.spot_requests
             if spot_reqs:
                 active = len([s for s in spot_reqs if s.state == 'active'])
                 opn = len([s for s in spot_reqs if s.state == 'open'])
@@ -575,8 +576,8 @@ class Cluster(object):
                 sg = self.ec2.create_group(self._security_group,
                                            description=desc, auth_ssh=True,
                                            auth_group_traffic=True)
-                print 'sg.tags'
-                print sg.tags
+                #print 'sg.tags'
+                #print sg.tags
                 log.info('Creating bucket for security group tags...')
                 sg_bucket = self.s3.get_or_create_bucket(sg.name)
                 sg_tags = []
@@ -584,10 +585,10 @@ class Cluster(object):
                 for key in keys:
                   sg_tags.append(key.name)
                 if not static.VERSION_TAG in sg_tags:
-                    print 'going to add tag'
+                    #print 'going to add tag'
                     #sg.add_tag(static.VERSION_TAG, str(static.VERSION))
                     self.s3.add_file(sg.name, static.VERSION_TAG, str(static.VERSION))
-                    print 'added version tag'
+                    log.debug('added version tag %s'%str(static.VERSION))
                 core_settings = utils.dump_compress_encode(
                     dict(cluster_size=self.cluster_size,
                          master_image_id=self.master_image_id,
@@ -661,7 +662,7 @@ class Cluster(object):
           #print '_security_group', self._security_group
           if self._security_group in sg_names:
             nodes.append(node)
-        print nodes
+        log.debug('all nodes: %s' % nodes)
         # remove any cached nodes not in the current node list from EC2
         current_ids = [n.id for n in nodes]
         remove_nodes = [n for n in self._nodes if n.id not in current_ids]
@@ -670,7 +671,8 @@ class Cluster(object):
         # update node cache with latest instance data from EC2
         existing_nodes = dict([(n.id, n) for n in self._nodes])
         log.debug('existing nodes: %s' % existing_nodes)
-        i=len(existing_nodes)
+        i=0
+#len(existing_nodes)
         for node in nodes:
             if node.id in existing_nodes:
                 log.debug('updating existing node %s in self._nodes' % node.id)
@@ -680,12 +682,12 @@ class Cluster(object):
             else:
                 log.debug('adding node %s to self._nodes list' % node.id)
                 #print node.get_attribute('userData')
-                print 'launch_index', i
+                #print 'launch_index', i
                 n = Node(node, self.key_location, s3=self.s3, launch_index=i)
                 #print n
                 i=i+1
                 if n.is_master():
-                    print 'n is master'
+                    #print 'n is master'
                     self._master = n
                     self._nodes.insert(0, n)
                 else:
@@ -696,7 +698,7 @@ class Cluster(object):
 
     def get_nodes_or_raise(self):
         nodes = self.nodes
-        print 'nodes', nodes
+        log.debug('nodes %s' % nodes)
         if not nodes:
             filters = {'group-name': self._security_group}
             all_nodes = self.ec2.get_all_instances(filters=filters)
@@ -707,7 +709,7 @@ class Cluster(object):
                   sg_names.append(sg.id)
                 if self._security_group.name in sg_names:
                   terminated_nodes.append(node)
-            print 'terminated_nodes', terminated_nodes
+            log.debug('terminated_nodes %s' % terminated_nodes)
             raise exception.NoClusterNodesFound(terminated_nodes)
         return nodes
 
@@ -782,15 +784,15 @@ class Cluster(object):
         spot_bid = spot_bid or self.spot_bid
         if force_flat:
             spot_bid = None
-        print 'spot_bid', spot_bid
+        #print 'spot_bid', spot_bid
         cluster_sg = self.cluster_group.name
-        print 'cluster_sg', cluster_sg
+        log.debug('cluster_sg %s' % cluster_sg)
         instance_type = instance_type or self.node_instance_type
         if not placement_group and instance_type in static.CLUSTER_TYPES:
             placement_group = self.placement_group.name
         image_id = image_id or self.node_image_id
         count = len(aliases) if not spot_bid else 1
-        print 'count' , count
+        #print 'count' , count
         user_data = self._get_cluster_userdata(aliases)
         #print 'user_data', user_data
         kwargs = dict(price=spot_bid, instance_type=instance_type,
@@ -811,6 +813,11 @@ class Cluster(object):
             resvs.append(self.ec2.request_instances(image_id, **kwargs))
         for resv in resvs:
             log.info(str(resv), extra=dict(__raw__=True))
+            #self.s3.get_or_create_bucket(cluster_sg)
+	    for instance in resv.instances:
+                #print "add user data to bucket for ", instance.id
+                self.s3.add_file(cluster_sg, instance.id+'user-data', user_data)
+
         return resvs
 
     def _get_next_node_num(self):
@@ -900,6 +907,7 @@ class Cluster(object):
         """
         default_plugin = clustersetup.DefaultClusterSetup(
             disable_threads=self.disable_threads, num_threads=self.num_threads)
+	log.debug('disable_queue: %s'%self.disable_queue)
         if not self.disable_queue:
             sge_plugin = sge.SGEPlugin(disable_threads=self.disable_threads,
                                        num_threads=self.num_threads)
@@ -997,7 +1005,7 @@ class Cluster(object):
         log.info("Launching a %d-node cluster..." % self.cluster_size)
         mtype = self.master_instance_type or self.node_instance_type
         self.master_instance_type = mtype
-        print 'spot_bid', self.spot_bid
+        #print 'spot_bid', self.spot_bid
         if self.spot_bid:
             self._create_spot_cluster()
         else:
@@ -1026,9 +1034,9 @@ class Cluster(object):
                 master_response = self.create_nodes(aliases, image_id=image,
                                                     instance_type=type,
                                                     force_flat=True)[0]
-                print 'master_response', master_response
+                log.debug( 'master_response %s' % master_response)
                 zone = master_response.instances[0].placement
-                print 'zone', zone
+                #print 'zone', zone
         lmap.pop(master_map)
         if self.cluster_size <= 1:
             return
@@ -1277,7 +1285,7 @@ class Cluster(object):
         """
         log.info("Waiting for SSH to come up on all nodes...")
         nodes = nodes or self.get_nodes_or_raise()
-        print 'waiting for nodes', nodes
+        log.debug('waiting for nodes %s' % nodes)
         self.pool.map(lambda n: n.wait(interval=self.refresh_interval), nodes)
 
     @print_timing("Waiting for cluster to come up")
@@ -1328,7 +1336,7 @@ class Cluster(object):
                 sg_names.append(sg.id)
             if self._security_group in sg_names:
                 insts.append(node)
-        print 'insts', insts
+        log.debug( 'insts %s' % insts)
         return len(insts) == 0
 
     def attach_volumes_to_master(self):
@@ -1431,7 +1439,7 @@ class Cluster(object):
         #        log.info("Canceling spot instance request: %s" % spot.id)
         #        spot.cancel()
         sg = self.ec2.get_group_or_none(self._security_group)
-        print sg
+        #print sg
         #pg = self.ec2.get_placement_group_or_none(self._security_group)
         #print pg
         s = self.get_spinner("Waiting for cluster to terminate...")
@@ -1521,9 +1529,9 @@ class Cluster(object):
         StarCluster setup routines followed by any additional plugin setup
         routines
         """
-        print 'before wait_for cluster'
+        #print 'before wait_for cluster'
         self.wait_for_cluster()
-        print 'after wait_for_cluster'
+        #print 'after wait_for_cluster'
         self._setup_cluster()
 
     @print_timing("Configuring cluster")
@@ -1798,7 +1806,7 @@ class ClusterValidator(validators.Validator):
         setting labels in the config file.
         """
         image = self.cluster.ec2.get_image_or_none(image_id)
-        print 'image', image.__dict__
+        #print 'image', image.__dict__
         if not image:
             raise exception.ClusterValidationError('Image %s does not exist' %
                                                    image_id)

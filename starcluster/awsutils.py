@@ -68,13 +68,13 @@ class EasyEC2(EasyAWS):
                  aws_proxy_user=None, aws_proxy_pass=None, aws_cell=None, **kwargs):
         aws_region = None
         if aws_region_name and aws_region_host:
-	    print aws_region_name, aws_region_host
+	    log.debug('aws_region_name:%s aws_region_host:%s'% (aws_region_name, aws_region_host))
             aws_region = boto.ec2.regioninfo.RegionInfo(
                 name=aws_region_name, endpoint=aws_region_host)
 	self.cell_name=None
         if aws_cell:
 	    self.cell_name=aws_cell
-	    print "using cell", aws_cell
+	    log.debug("using cell %s" % aws_cell)
         kwargs = dict(is_secure=aws_is_secure, region=aws_region,
                       port=aws_port, path=aws_ec2_path, proxy=aws_proxy,
                       proxy_port=aws_proxy_port, proxy_user=aws_proxy_user,
@@ -247,9 +247,15 @@ class EasyEC2(EasyAWS):
         #print 'filters ',  filters
         groups=self.conn.get_all_security_groups(filters=filters)
         groups_filtered=[]
+        regex = re.compile(filters['group-name'])
+        #for sg in all_sgs:
+
         for group in groups:
-          if group.name==filters['group-name']:
-            groups_filtered.append(group)
+          #if group.name==filters['group-name']:
+            if regex.match(group.name):
+                #sgs.append(sg)
+                groups_filtered.append(group)
+	log.debug('groups_filtered %s' % groups_filtered)
         return groups_filtered
 
     def get_permission_or_none(self, group, ip_protocol, from_port, to_port,
@@ -387,8 +393,8 @@ class EasyEC2(EasyAWS):
                       placement=None, user_data=None, placement_group=None):
 	if self.cell_name:
 	    placement=self.cell_name
-	print "run instance %s %s %d %d %s %s %s %s"%(image_id,instance_type,min_count,max_count,key_name,security_groups,placement,placement_group)
-        return self.conn.run_instances(image_id, instance_type=instance_type,
+	log.debug( "run instance %s %s %d %d %s %s %s %s"%(image_id,instance_type,min_count,max_count,key_name,security_groups,placement,placement_group))
+        res = self.conn.run_instances(image_id, instance_type=instance_type,
                                        min_count=min_count,
                                        max_count=max_count,
                                        key_name=key_name,
@@ -397,6 +403,11 @@ class EasyEC2(EasyAWS):
                                        #user_data=user_data,
                                        user_data=None,
                                        placement_group=placement_group)
+	#self.s3.get_or_create_bucket(security_groups[0])
+	#for ins in res.instances:
+	#    print "add user data to bucket for ", ins.id
+	#    self.s3.add_file_to_bucket(security_groups[0], ins.id+'user-data', user_data) 
+	return res
 
     def create_image(self, instance_id, name, description=None,
                      no_reboot=False):
@@ -473,8 +484,8 @@ class EasyEC2(EasyAWS):
         return image_name
 
     def get_instance_user_data(self, instance_id):
-        print 'instance_id', instance_id
-        print 'conn' , self.conn
+        #print 'instance_id', instance_id
+        #print 'conn' , self.conn
         try:
             attrs = self.conn.get_instance_attribute(instance_id, 'userData')
             user_data = attrs.get('userData', '') or ''
@@ -1318,7 +1329,7 @@ class EasyS3(EasyAWS):
         Returns bucket object representing S3 bucket
         """
         try:
-	    print "bucket_name %s" % bucketname
+	    #print "bucket_name %s" % bucketname
             return self.conn.get_bucket(bucketname)
         except boto.exception.S3ResponseError, e:
             if e.error_code == "NoSuchBucket":
@@ -1350,11 +1361,20 @@ class EasyS3(EasyAWS):
         return files
     
     def add_file(self, bucket_name, file_name, content):
-        bucket = self.get_bucket(bucket_name)
+	bucket = None
+	while not bucket:
+	    try:
+                bucket = self.get_bucket(bucket_name)
+	    except:
+                e = sys.exc_info()[0]
+                log.error("Encounter an error when connecting to API server: %s" % str(e))
+		time.sleep(1)
+
         key = Key(bucket)
         key.key = file_name
-	print "adding %s "%key
+	#print "adding %s=%s"%(file_name,str(content))
         key.set_contents_from_string(content)
+	    
 
     def get_file(self, bucket_name, file_name):
         bucket = self.get_bucket(bucket_name)
@@ -1362,13 +1382,19 @@ class EasyS3(EasyAWS):
         key.key = file_name
         return key.get_contents_as_string()
 
-    def get_files_as_map(self, bucket_name):
+    def get_files_as_map(self, bucket_name, pattern=None):
         bucket = self.get_bucket(bucket_name)
         keys = {}
+	log.debug('pattern %s'%pattern)
 	for key in bucket.list():
-	    print "getting %s"%key
-	    keys[key.name]=key.get_contents_as_string()
+	    if (pattern and re.match(pattern,key.name)) or not pattern:
+	        keys[key.name]=key.get_contents_as_string()
+	log.debug('keys %s'%keys)
 	return keys
+
+    def delet_file(self, bucketname, keyname):
+	bucket = self.get_bucket(bucketname)
+	bucket.delete_key(keyname)
 
 
 if __name__ == "__main__":
