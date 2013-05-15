@@ -393,6 +393,7 @@ class Cluster(object):
         self._nodes = []
         self._pool = None
         self._progress_bar = None
+	self.__default_plugin = None
 
     def __repr__(self):
         return '<Cluster: %s (%s-node)>' % (self.cluster_tag,
@@ -444,6 +445,14 @@ class Cluster(object):
                           "list of dicts", DeprecationWarning)
             plugins = deathrow._load_plugins(plugins)
         return plugins
+
+    @property
+    def _default_plugin(self):
+        if not self.__default_plugin:
+            self.__default_plugin = clustersetup.DefaultClusterSetup(
+                disable_threads=self.disable_threads,
+                num_threads=self.num_threads)
+        return self.__default_plugin
 
     def load_volumes(self, vols):
         """
@@ -1565,7 +1574,11 @@ class Cluster(object):
         plugins must be a tuple: the first element is the plugin's name, the
         second element is the plugin object (a subclass of ClusterSetup)
         """
-        plugs = plugins or self.plugins
+        plugs = [self._default_plugin]
+#plugins or self.plugins
+	#if not self.disable_queue:
+        #    plugs.append(self._sge_plugin)
+	plugs += (plugins or self.plugins)[:]
         if reverse:
             plugs = plugs[:]
             plugs.reverse()

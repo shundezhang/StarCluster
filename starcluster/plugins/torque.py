@@ -1,10 +1,13 @@
 from starcluster import clustersetup
 from starcluster.templates import torque
 from starcluster.logger import log
+import random
+import string
 
 MUNGE_KEY = '/etc/munge/munge.key'
 SERVER_NAME = '/etc/torque/server_name'
 MOM_CONFIG = '/etc/torque/mom/config'
+MAUI_CONFIG = '/var/spool/maui/maui.cfg'
 
 class TorquePlugin(clustersetup.DefaultClusterSetup):
 
@@ -28,11 +31,17 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
         mom_config.close()
         node.ssh.execute('service pbs_mom start')
 
+    def _config_maui(self, node):
+        maui_config=node.ssh.remote_file(MAUI_CONFIG, 'w')
+        maui_config.write(torque.maui_config_tmpl)
+        maui_config.close()
+        node.ssh.execute('service maui start')
+
     def _setup_master(self, node):
-	_config_server_name(node)
+	self._config_server_name(node)
 
 	munge_key=node.ssh.remote_file(MUNGE_KEY, 'w')
-	munge_key.write(_generate_munge_key(1024))
+	munge_key.write(self._generate_munge_key(1024))
 	munge_key.close()
 	node.ssh.execute('chown munge:munge '+MUNGE_KEY)
 	node.ssh.execute('chmod 600 '+MUNGE_KEY)
@@ -47,14 +56,16 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
 	node.ssh.execute('qmgr -c "set server resources_default.cput = 01:00:00"')
 	node.ssh.execute('qmgr -c "set server resources_default.neednodes = 1"')
 	node.ssh.execute('qmgr -c "set server auto_node_np = True"')
-	node.ssh.execute('qmgr -c "set server authorized_users = *@master"')
+	#node.ssh.execute('qmgr -c "set server authorized_users = *@master"')
 	
-	node.ssh.execute('qmgr -c "add node master"')
-	_config_mom(node)
+	node.ssh.execute('qmgr -c "create node master"')
+	self._config_mom(node)
+
+	self._config_maui(node)
 
     def _setup_worker_node(self, node):
-	_config_server_name(node)
-	_config_mom(node)
+	self._config_server_name(node)
+	self._config_mom(node)
 
     def _setup_torque(self, master=None, nodes=None):
         log.info("Setting up Torque cluster")
