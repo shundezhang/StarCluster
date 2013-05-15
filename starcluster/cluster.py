@@ -439,7 +439,7 @@ class Cluster(object):
         self._pool = None
         self._progress_bar = None
         self.__default_plugin = None
-        self.__sge_plugin = None
+        #self.__sge_plugin = None
 
     def __repr__(self):
         return '<Cluster: %s (%s-node)>' % (self.cluster_tag,
@@ -1619,9 +1619,9 @@ class Cluster(object):
         second element is the plugin object (a subclass of ClusterSetup)
         """
         plugs = [self._default_plugin]
-        if not self.disable_queue:
-            plugs.append(self._sge_plugin)
-        plugs += (plugins or self.plugins)[:]
+	#if not self.disable_queue:
+        #    plugs.append(self._sge_plugin)
+	plugs += (plugins or self.plugins)[:]
         if reverse:
             plugs.reverse()
         for plug in plugs:
