@@ -74,18 +74,17 @@ execfile(static)  # pull VERSION from static.py
 README = open('README.rst').read()
 
 setup(
-    name='StarCluster',
+    name='StarCluster-openstack',
     version=VERSION,
     packages=find_packages(),
     package_data={'starcluster.templates':
                   ['web/*.*', 'web/css/*', 'web/js/*']},
     scripts=['bin/starcluster'],
     license='LGPL3',
-    author='Justin Riley',
-    author_email='justin.t.riley@gmail.com',
-    url="http://star.mit.edu/cluster",
-    description="StarCluster is a utility for creating and managing computing "
-    "clusters hosted on Amazon's Elastic Compute Cloud (EC2).",
+    author='Shunde Zhang',
+    author_email='shunde.zhang@ersa.edu.au',
+    url="http://github.com/shundezhang/starcluster",
+    description="This is an OpenStack port of StarCluster developed by MIT (http://star.mit.edu/cluster)",
     long_description=README,
     classifiers=[
         'Environment :: Console',

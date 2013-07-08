@@ -13,6 +13,8 @@ import boto
 import boto.ec2
 import boto.s3.connection
 from boto.s3.key import Key
+from boto import config as boto_config
+from boto.connection import HAVE_HTTPS_CONNECTION
 
 from starcluster import image
 from starcluster import utils
@@ -27,7 +29,7 @@ from starcluster.logger import log
 
 class EasyAWS(object):
     def __init__(self, aws_access_key_id, aws_secret_access_key,
-                 connection_authenticator, **kwargs):
+                 connection_authenticator, aws_validate_certs=False, **kwargs):
         """
         Create an EasyAWS object.
 
@@ -42,6 +44,7 @@ class EasyAWS(object):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.connection_authenticator = connection_authenticator
+	self.aws_validate_certs = aws_validate_certs
         self._conn = None
         self._kwargs = kwargs
 
@@ -54,9 +57,25 @@ class EasyAWS(object):
         if self._conn is None:
             log.debug('creating self._conn w/ connection_authenticator ' +
                       'kwargs = %s' % self._kwargs)
+            if self.aws_validate_certs:
+                if not HAVE_HTTPS_CONNECTION:
+                    raise exception.AWSError(
+                        "Failed to validate AWS SSL certificates. "
+                        "SSL certificate validation is only supported "
+                        "on Python>=2.6.\n\nSet AWS_VALIDATE_CERTS=False in "
+                        "the [aws info] section of your config to skip SSL "
+                        "certificate verification and suppress this error AT "
+                        "YOUR OWN RISK.")
+            # Hack for now since boto reads https_validate_certificates
+            # from the boto config rather than exposing the setting via
+            # AWSAuthConnection.__init__ and the likes (PR needed...)
+            if boto_config.has_option('Boto', 'https_validate_certificates'):
+                boto_config.setbool('Boto', 'https_validate_certificates',
+                                    False)
             self._conn = self.connection_authenticator(
                 self.aws_access_key_id, self.aws_secret_access_key,
                 **self._kwargs)
+	    self._conn.https_validate_certificates = self.aws_validate_certs
         return self._conn
 
 
@@ -65,7 +84,8 @@ class EasyEC2(EasyAWS):
                  aws_ec2_path='/', aws_s3_host=None, aws_s3_path='/',
                  aws_port=None, aws_region_name=None, aws_is_secure=True,
                  aws_region_host=None, aws_proxy=None, aws_proxy_port=None,
-                 aws_proxy_user=None, aws_proxy_pass=None, aws_cell=None, **kwargs):
+                 aws_proxy_user=None, aws_proxy_pass=None, aws_cell=None, 
+		 aws_validate_certs=False, **kwargs):
         aws_region = None
         if aws_region_name and aws_region_host:
 	    log.debug('aws_region_name:%s aws_region_host:%s'% (aws_region_name, aws_region_host))
@@ -80,7 +100,7 @@ class EasyEC2(EasyAWS):
                       proxy_port=aws_proxy_port, proxy_user=aws_proxy_user,
                       proxy_pass=aws_proxy_pass)
         super(EasyEC2, self).__init__(aws_access_key_id, aws_secret_access_key,
-                                      boto.connect_ec2, **kwargs)
+                                      boto.connect_ec2, aws_validate_certs=aws_validate_certs, **kwargs)
         kwargs = dict(aws_s3_host=aws_s3_host, aws_s3_path=aws_s3_path,
                       aws_port=aws_port, aws_is_secure=aws_is_secure,
                       aws_proxy=aws_proxy, aws_proxy_port=aws_proxy_port,
@@ -1272,7 +1292,7 @@ class EasyS3(EasyAWS):
     def __init__(self, aws_access_key_id, aws_secret_access_key,
                  aws_s3_path='/', aws_s3_port=None, aws_is_secure=True,
                  aws_s3_host=DefaultHost, aws_proxy=None, aws_proxy_port=None,
-                 aws_proxy_user=None, aws_proxy_pass=None, **kwargs):
+                 aws_proxy_user=None, aws_proxy_pass=None, aws_validate_certs=False, **kwargs):
         kwargs = dict(is_secure=aws_is_secure, host=aws_s3_host or
                       self.DefaultHost, port=aws_s3_port, path=aws_s3_path,
                       proxy=aws_proxy, proxy_port=aws_proxy_port,
@@ -1280,7 +1300,7 @@ class EasyS3(EasyAWS):
         if aws_s3_host:
             kwargs.update(dict(calling_format=self._calling_format))
         super(EasyS3, self).__init__(aws_access_key_id, aws_secret_access_key,
-                                     boto.connect_s3, **kwargs)
+                                     boto.connect_s3, aws_validate_certs=aws_validate_certs, **kwargs)
 
     def __repr__(self):
         return '<EasyS3: %s>' % self.conn.server_name()
