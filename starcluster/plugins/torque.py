@@ -3,6 +3,7 @@ from starcluster.templates import torque
 from starcluster.logger import log
 import random
 import string
+import time
 
 MUNGE_KEY = '/etc/munge/munge.key'
 SERVER_NAME = '/etc/torque/server_name'
@@ -39,6 +40,7 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
 
     def _setup_master(self, node):
 	self._config_server_name(node)
+	node.ssh.execute('yum install -y denyhosts', ignore_exit_status=True)
 
 	munge_key=node.ssh.remote_file(MUNGE_KEY, 'w')
 	munge_key.write(self._generate_munge_key(1024))
@@ -116,5 +118,13 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
         self._volumes = volumes
         log.info("Removing %s from Torque peacefully..." % node.alias)
 	master.ssh.execute('pbsnodes -o '+node.alias)
+        worker_node_drained = False
+	log.info("waiting for node to be drained in maui...")
+        while not worker_node_drained:
+            if master.ssh.execute('checknode '+node.alias+'|grep Drained', ignore_exit_status=True):
+		worker_node_drained = True
+	    time.sleep(2)
+	log.info("node is drained in maui, go on to delete it in torque...")
 	master.ssh.execute('qmgr -c "delete node '+node.alias+'"')
         node.ssh.execute("service pbs_mom stop")
+	master.ssh.execute('service maui restart')
