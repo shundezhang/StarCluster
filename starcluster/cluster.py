@@ -572,7 +572,7 @@ class Cluster(object):
         try:
             #tags = self.cluster_group.tags
             tags = self.s3.get_files_as_map(self.cluster_group.name)
-            print 'tags', tags
+            #print 'tags', tags
             version = tags.get(static.VERSION_TAG, '')
             if utils.program_version_greater(version, static.VERSION):
                 d = dict(cluster=self.cluster_tag, old_version=static.VERSION,
@@ -592,16 +592,16 @@ class Cluster(object):
             self.update(cluster_settings)
             if not (load_plugins or load_volumes):
                 return True
-            try:
-                master = self.master_node
-            except exception.MasterDoesNotExist:
-                unfulfilled_spots = [sr for sr in self.spot_requests if not
-                                     sr.instance_id]
-                if unfulfilled_spots:
-                    self.wait_for_active_spots()
-                    master = self.master_node
-                else:
-                    raise
+            #try:
+            master = self.master_node
+            #except exception.MasterDoesNotExist:
+            #    unfulfilled_spots = [sr for sr in self.spot_requests if not
+            #                         sr.instance_id]
+            #    if unfulfilled_spots:
+            #        self.wait_for_active_spots()
+            #        master = self.master_node
+            #    else:
+            #       raise
             if load_plugins:
                 self.plugins = self.load_plugins(master.get_plugins())
             if load_volumes:
@@ -1358,7 +1358,7 @@ class Cluster(object):
         log.info("%s %s" % (msg, "(updating every %ds)" % interval))
         try:
             #self.wait_for_active_spots()
-            self.wait_for_active_instances()
+            self.wait_for_running_instances()
             self.wait_for_running_instances()
             self.wait_for_ssh()
         except Exception:
@@ -1505,7 +1505,7 @@ class Cluster(object):
         #print sg
         #pg = self.ec2.get_placement_group_or_none(self._security_group)
         #print pg
-        s = self.get_spinner("Waiting for cluster to terminate...")
+        s = utils.get_spinner("Waiting for cluster to terminate...")
         try:
             while not self.is_cluster_terminated():
                 time.sleep(5)

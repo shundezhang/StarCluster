@@ -102,7 +102,6 @@ class EasyEC2(EasyAWS):
                  aws_ec2_path='/', aws_s3_host=None, aws_s3_path='/',
                  aws_port=None, aws_region_name=None, aws_is_secure=True,
                  aws_region_host=None, aws_proxy=None, aws_proxy_port=None,
-                 aws_proxy_user=None, aws_proxy_pass=None,
                  aws_validate_certs=True, 
                  aws_proxy_user=None, aws_proxy_pass=None, aws_cell=None, **kwargs):
         aws_region = None
@@ -444,14 +443,15 @@ class EasyEC2(EasyAWS):
                                                  num_ephemeral_drives=24)
             # Prune drives from runtime block device map that may override EBS
             # volumes specified in the AMIs block device map
-            for dev in img.block_device_mapping:
-                bdt = img.block_device_mapping.get(dev)
-                if not bdt.ephemeral_name and dev in bdmap:
-                    log.debug("EBS volume already mapped to %s by AMI" % dev)
-                    log.debug("Removing %s from runtime block device map" %
-                              dev)
-                    bdmap.pop(dev)
-            block_device_map = bdmap
+	    if img.block_device_mapping:
+                for dev in img.block_device_mapping:
+                    bdt = img.block_device_mapping.get(dev)
+                    if not bdt.ephemeral_name and dev in bdmap:
+                        log.debug("EBS volume already mapped to %s by AMI" % dev)
+                        log.debug("Removing %s from runtime block device map" %
+                                  dev)
+                        bdmap.pop(dev)
+                block_device_map = bdmap
         if price:
             return self.request_spot_instances(
                 price, image_id, instance_type=instance_type,
@@ -551,7 +551,7 @@ class EasyEC2(EasyAWS):
                                        key_name=key_name,
                                        security_groups=security_groups,
                                        placement=placement,
-                                       block_device_map=block_device_map)
+                                       block_device_map=block_device_map,
                                        #user_data=user_data,
                                        user_data=None,
                                        placement_group=placement_group)
