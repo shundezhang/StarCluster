@@ -32,8 +32,6 @@ import boto.s3.connection
 from boto import config as boto_config
 from boto.connection import HAVE_HTTPS_CONNECTION
 from boto.s3.key import Key
-from boto import config as boto_config
-from boto.connection import HAVE_HTTPS_CONNECTION
 
 from starcluster import image
 from starcluster import utils

@@ -1529,6 +1529,16 @@ class Cluster(object):
             bucket.delete_key(key.name)
         bucket.delete()
 
+    def delete_bucket(self, sg_name):
+        """
+        Delete the bucket created to store metadata
+        sg_name - security group name, used as the bucket name
+        """
+        bucket = self.s3.get_bucket(sg_name)
+        for key in bucket.list():
+            bucket.delete_key(key.name)
+        bucket.delete()
+
     def start(self, create=True, create_only=False, validate=True,
               validate_only=False, validate_running=False):
         """
