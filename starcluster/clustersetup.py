@@ -37,32 +37,32 @@ class ClusterSetup(object):
     def __init__(self, *args, **kwargs):
         pass
 
-    def on_add_node(self, node, nodes, master, user, user_shell, volumes):
+    def on_add_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         """
         This methods gets executed after a node has been added to the cluster
         """
         raise NotImplementedError('on_add_node method not implemented')
 
-    def on_remove_node(self, node, nodes, master, user, user_shell, volumes):
+    def on_remove_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         """
         This method gets executed before a node is about to be removed from the
         cluster
         """
         raise NotImplementedError('on_remove_node method not implemented')
 
-    def on_restart(self, nodes, master, user, user_shell, volumes):
+    def on_restart(self, nodes, master, user, user_id, group_id, user_shell, volumes):
         """
         This method gets executed before restart the cluster
         """
         raise NotImplementedError('on_restart method not implemented')
 
-    def on_shutdown(self, nodes, master, user, user_shell, volumes):
+    def on_shutdown(self, nodes, master, user, user_id, group_id, user_shell, volumes):
         """
         This method gets executed before shutting down the cluster
         """
         raise NotImplementedError('on_shutdown method not implemented')
 
-    def run(self, nodes, master, user, user_shell, volumes):
+    def run(self, nodes, master, user, user_id, group_id, user_shell, volumes):
         """
         Run this plugin's setup routines
 
@@ -92,6 +92,8 @@ class DefaultClusterSetup(ClusterSetup):
         self._nodes = None
         self._master = None
         self._user = None
+        self._user_id = 1000
+        self._group_id = 1000
         self._user_shell = None
         self._volumes = None
         self._disable_threads = disable_threads
@@ -124,8 +126,8 @@ class DefaultClusterSetup(ClusterSetup):
         self.pool.wait(numtasks=len(nodes))
 
     def _get_max_unused_user_id(self):
-        first_uid = 1000
-        uid, gid = first_uid, first_uid
+        #first_uid = 1000
+        uid, gid = self._user_id, self._group_id
         mconn = self._master.ssh
         umap = self._master.get_user_map(key_by_uid=True)
         uid_db = {}
@@ -139,8 +141,8 @@ class DefaultClusterSetup(ClusterSetup):
             max_gid = uid_db[max_uid][1]
             uid, gid = max_uid + 1, max_gid + 1
             # make sure the newly selected uid/gid is >= 1000
-            uid = max(uid, first_uid)
-            gid = max(gid, first_uid)
+            uid = max(uid, self._user_id) #first_uid)
+            gid = max(gid, self._group_id) #first_uid)
         # make sure newly selected uid is not already in /etc/passwd
         while umap.get(uid):
             uid += 1
@@ -368,11 +370,13 @@ class DefaultClusterSetup(ClusterSetup):
             master.export_fs_to_nodes(nodes, export_paths)
             self._mount_nfs_shares(nodes, export_paths=export_paths)
 
-    def run(self, nodes, master, user, user_shell, volumes):
+    def run(self, nodes, master, user, user_id, group_id, user_shell, volumes):
         """Start cluster configuration"""
         self._nodes = nodes
         self._master = master
         self._user = user
+        self._user_id = user_id
+        self._group_id = group_id
         self._user_shell = user_shell
         self._volumes = volumes
         self._setup_hostnames()
@@ -397,10 +401,12 @@ class DefaultClusterSetup(ClusterSetup):
             n.remove_from_known_hosts('root', [node])
             n.remove_from_known_hosts(self._user, [node])
 
-    def on_remove_node(self, node, nodes, master, user, user_shell, volumes):
+    def on_remove_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         self._nodes = nodes
         self._master = master
         self._user = user
+        self._user_id = user_id
+        self._group_id = group_id
         self._user_shell = user_shell
         self._volumes = volumes
         log.info("Removing node %s (%s)..." % (node.alias, node.id))
@@ -416,10 +422,12 @@ class DefaultClusterSetup(ClusterSetup):
         uid, gid = user.pw_uid, user.pw_gid
         self._add_user_to_nodes(uid, gid, nodes=[node])
 
-    def on_add_node(self, node, nodes, master, user, user_shell, volumes):
+    def on_add_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         self._nodes = nodes
         self._master = master
         self._user = user
+        self._user_id = user_id
+        self._group_id = group_id
         self._user_shell = user_shell
         self._volumes = volumes
         self._setup_hostnames(nodes=[node])

@@ -89,7 +89,7 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
                                  jobid=node.alias)
         self.pool.wait(numtasks=len(nodes))
 
-    def run(self, nodes, master, user, user_shell, volumes):
+    def run(self, nodes, master, user, user_id, group_id, user_shell, volumes):
         try:
             self._nodes = nodes
             self._master = master
@@ -100,7 +100,7 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
         finally:
             self.pool.shutdown()
 
-    def on_add_node(self, node, nodes, master, user, user_shell, volumes):
+    def on_add_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         self._nodes = nodes
         self._master = master
         self._user = user
@@ -110,7 +110,7 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
 	master.ssh.execute('qmgr -c "create node '+node.alias+'"')
         self._setup_worker_node(node)
 
-    def on_remove_node(self, node, nodes, master, user, user_shell, volumes):
+    def on_remove_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         self._nodes = nodes
         self._master = master
         self._user = user

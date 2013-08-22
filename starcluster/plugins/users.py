@@ -59,7 +59,7 @@ class CreateUsers(clustersetup.DefaultClusterSetup):
         self._download_keys_dir = download_keys_dir or self.DOWNLOAD_KEYS_DIR
         super(CreateUsers, self).__init__()
 
-    def run(self, nodes, master, user, user_shell, volumes):
+    def run(self, nodes, master, user, user_id, group_id, user_shell, volumes):
         self._nodes = nodes
         self._master = master
         self._user = user
@@ -145,7 +145,7 @@ class CreateUsers(clustersetup.DefaultClusterSetup):
         bfile.close()
         return bfilecontents
 
-    def on_add_node(self, node, nodes, master, user, user_shell, volumes):
+    def on_add_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         self._nodes = nodes
         self._master = master
         self._user = user
@@ -165,5 +165,5 @@ class CreateUsers(clustersetup.DefaultClusterSetup):
         pbar.finish()
         self._setup_scratch(nodes=[node], users=self._usernames)
 
-    def on_remove_node(self, node, nodes, master, user, user_shell, volumes):
+    def on_remove_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         raise NotImplementedError('on_remove_node method not implemented')

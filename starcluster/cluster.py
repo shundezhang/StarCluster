@@ -377,6 +377,8 @@ class Cluster(object):
                  cluster_description=None,
                  cluster_size=None,
                  cluster_user=None,
+                 cluster_user_id=1000,
+                 cluster_group_id=1000,
                  cluster_shell=None,
                  master_image_id=None,
                  master_instance_type=None,
@@ -411,6 +413,9 @@ class Cluster(object):
             self.cluster_description = "Cluster created at %s" % now
         self.cluster_size = cluster_size or 0
         self.cluster_user = cluster_user
+	log.debug("Cluster init() cluster_user %s"%cluster_user)
+        self.cluster_user_id = cluster_user_id
+        self.cluster_group_id = cluster_group_id
         self.cluster_shell = cluster_shell
         self.master_image_id = master_image_id
         self.master_instance_type = master_instance_type
@@ -1655,7 +1660,7 @@ class Cluster(object):
                 log.warn("Plugin %s has no %s method...skipping" %
                          (plugin_name, method_name))
                 return
-            args = [self.nodes, self.master_node, self.cluster_user,
+            args = [self.nodes, self.master_node, self.cluster_user, self.cluster_user_id, self.cluster_group_id,
                     self.cluster_shell, self.volumes]
             if node:
                 args.insert(0, node)

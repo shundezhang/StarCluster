@@ -65,7 +65,7 @@ class CondorPlugin(clustersetup.DefaultClusterSetup):
                                  jobid=node.alias)
         self.pool.wait(numtasks=len(nodes))
 
-    def run(self, nodes, master, user, user_shell, volumes):
+    def run(self, nodes, master, user, user_id, group_id, user_shell, volumes):
         self._nodes = nodes
         self._master = master
         self._user = user
@@ -73,7 +73,7 @@ class CondorPlugin(clustersetup.DefaultClusterSetup):
         self._volumes = volumes
         self._setup_condor()
 
-    def on_add_node(self, node, nodes, master, user, user_shell, volumes):
+    def on_add_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         self._nodes = nodes
         self._master = master
         self._user = user
@@ -82,7 +82,7 @@ class CondorPlugin(clustersetup.DefaultClusterSetup):
         log.info("Adding %s to Condor" % node.alias)
         self._add_condor_node(node)
 
-    def on_remove_node(self, node, nodes, master, user, user_shell, volumes):
+    def on_remove_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         self._nodes = nodes
         self._master = master
         self._user = user

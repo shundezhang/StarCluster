@@ -228,6 +228,8 @@ CLUSTER_SETTINGS = {
     'spot_bid': (float, False, None, None, None),
     'cluster_size': (int, True, None, None, None),
     'cluster_user': (str, False, 'sgeadmin', None, None),
+    'cluster_user_id': (int, False, 1000, None, None),
+    'cluster_group_id': (int, False, 1000, None, None),
     'cluster_shell': (str, False, 'bash', AVAILABLE_SHELLS.keys(), None),
     'master_image_id': (str, False, None, None, None),
     'master_instance_type': (str, False, None, INSTANCE_TYPES.keys(), None),
