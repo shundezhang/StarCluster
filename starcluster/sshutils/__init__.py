@@ -167,6 +167,7 @@ class SSHClient(object):
                     'No suitable address family for %s' % hostname)
         sock = socket.socket(af, socket.SOCK_STREAM)
         sock.settimeout(self._timeout)
+	log.debug("connecting to %s:%d" % (hostname,port))
         sock.connect((hostname, port))
         return sock
 

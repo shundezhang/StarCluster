@@ -263,12 +263,12 @@ class EasyEC2(EasyAWS):
         if auth_group_traffic:
             src_group = self.get_group_or_none(name)
             #print src_group
-            sg.authorize('icmp', -1, -1, '115.146.0.0/16') #src_group=src_group)
-            sg.authorize('tcp', 1, 65535, '115.146.0.0/16') #src_group=src_group)
-            sg.authorize('udp', 1, 65535, '115.146.0.0/16') #src_group=src_group)
-            sg.authorize('icmp', -1, -1, '118.138.240.0/21') #src_group=src_group)
-            sg.authorize('tcp', 1, 65535, '118.138.240.0/21') #src_group=src_group)
-            sg.authorize('udp', 1, 65535, '118.138.240.0/21') #src_group=src_group)
+            sg.authorize('icmp', -1, -1, src_group=src_group)
+            sg.authorize('tcp', 1, 65535, src_group=src_group)
+            sg.authorize('udp', 1, 65535, src_group=src_group)
+            #sg.authorize('icmp', -1, -1, '118.138.240.0/21') #src_group=src_group)
+            #sg.authorize('tcp', 1, 65535, '118.138.240.0/21') #src_group=src_group)
+            #sg.authorize('udp', 1, 65535, '118.138.240.0/21') #src_group=src_group)
         return sg
 
     def get_all_security_groups(self, groupnames=[]):
@@ -912,7 +912,15 @@ class EasyEC2(EasyAWS):
             print
 
     def get_zones(self, filters=None):
-        return self.conn.get_all_zones(filters=filters)
+        all_zones = self.conn.get_all_zones(filters=filters)
+	zones = []
+	if 'zone-name' in filters:
+	    for z in all_zones:
+		if z.name==filters['zone-name']:
+		    zones.append(z)
+	elif filters==None:
+	    return all_zones
+	return zones
 
     def get_zone(self, zone):
         """
@@ -1122,7 +1130,7 @@ class EasyEC2(EasyAWS):
             sda1.snapshot_id = root_snapshot_id
             sda1.delete_on_termination = True
             bmap[root_device_name] = sda1
-        drives = ['/dev/xvd%s%%s' % s for s in string.lowercase]
+        drives = ['/dev/vd%s%%s' % s for s in string.lowercase]
         if add_ephemeral_drives:
             for i in range(num_ephemeral_drives):
                 j, k = i % 26, i / 26

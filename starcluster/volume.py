@@ -41,15 +41,15 @@ class VolumeCreator(cluster.Cluster):
     shutdown_instance - True will shutdown the host instance after volume
     creation
     """
-    def __init__(self, ec2_conn, spot_bid=None, keypair=None,
-                 key_location=None, host_instance=None, device='/dev/sdz',
-                 image_id=static.BASE_AMI_32, instance_type="t1.micro",
+    def __init__(self, ec2_conn, s3_conn, spot_bid=None, keypair=None,
+                 key_location=None, host_instance=None, device='/dev/sdc',
+                 image_id=static.BASE_AMI_32, instance_type="m1.small",
                  shutdown_instance=False, detach_vol=False,
                  mkfs_cmd='mkfs.ext3 -F', resizefs_cmd='resize2fs', **kwargs):
         self._host_instance = host_instance
         self._instance = None
         self._volume = None
-        self._aws_block_device = device or '/dev/sdz'
+        self._aws_block_device = device or '/dev/sdc'
         self._real_device = None
         self._image_id = image_id or static.BASE_AMI_32
         self._instance_type = instance_type or 'm1.small'
@@ -59,7 +59,7 @@ class VolumeCreator(cluster.Cluster):
         self._resizefs_cmd = resizefs_cmd
         self._alias_tmpl = "volhost-%s"
         super(VolumeCreator, self).__init__(
-            ec2_conn=ec2_conn, spot_bid=spot_bid, keyname=keypair,
+            ec2_conn=ec2_conn, s3_conn=s3_conn, spot_bid=spot_bid, keyname=keypair,
             key_location=key_location, cluster_tag=static.VOLUME_GROUP_NAME,
             cluster_size=1, cluster_user="sgeadmin", cluster_shell="bash",
             node_image_id=self._image_id,
@@ -120,7 +120,10 @@ class VolumeCreator(cluster.Cluster):
 
     def _determine_device(self):
         block_dev_map = self._instance.block_device_mapping
-        for char in string.lowercase[::-1]:
+	log.debug("self._instance.block_device_mapping %s"%self._instance.block_device_mapping)
+	if not self._instance.block_device_mapping:
+	    return None
+        for char in string.lowercase[2:]:
             dev = '/dev/sd%s' % char
             if not block_dev_map.get(dev):
                 self._aws_block_device = dev
@@ -128,19 +131,20 @@ class VolumeCreator(cluster.Cluster):
 
     def _get_volume_device(self, device=None):
         dev = device or self._aws_block_device
+	log.debug("dev %s"%dev)
         inst = self._instance
         if inst.ssh.path_exists(dev):
             self._real_device = dev
             return dev
-        xvdev = '/dev/xvd' + dev[-1]
-        if inst.ssh.path_exists(xvdev):
-            self._real_device = xvdev
-            return xvdev
+        vdev = '/dev/vd' + dev[-1]
+        if inst.ssh.path_exists(vdev):
+            self._real_device = vdev
+            return vdev
         raise exception.BaseException("Can't find volume device")
 
     def _attach_volume(self, vol, instance_id, device):
-        log.info("Attaching volume %s to instance %s..." %
-                 (vol.id, instance_id))
+        log.info("Attaching volume %s to instance %s on %s..." %
+                 (vol.id, instance_id, device))
         vol.attach(instance_id, device)
         self.ec2.wait_for_volume(vol, state='attached')
         return self._volume
@@ -165,7 +169,7 @@ class VolumeCreator(cluster.Cluster):
                 'instance_type must be one of: %s' % choices)
         itype_platform = static.INSTANCE_TYPES.get(itype)
         img_platform = img.architecture
-        if img_platform not in itype_platform:
+        if img_platform and img_platform not in itype_platform:
             error_msg = "instance_type %(itype)s is for an "
             error_msg += "%(iplat)s platform while image_id "
             error_msg += "%(img)s is an %(imgplat)s platform"
@@ -285,15 +289,17 @@ class VolumeCreator(cluster.Cluster):
             self._determine_device()
             vol = self._create_volume(volume_size, volume_zone)
             if tags:
-                for tag in tags:
-                    tagval = tags.get(tag)
-                    tagmsg = "Adding volume tag: %s" % tag
-                    if tagval:
-                        tagmsg += "=%s" % tagval
-                    log.info(tagmsg)
-                    vol.add_tag(tag, tagval)
-            if name:
-                vol.add_tag("Name", name)
+		log.debug("vol tags %s" % tags)
+            #    for tag in tags:
+            #        tagval = tags.get(tag)
+            #        tagmsg = "Adding volume tag: %s" % tag
+            #        if tagval:
+            #            tagmsg += "=%s" % tagval
+            #        log.info(tagmsg)
+            #        vol.add_tag(tag, tagval)
+	    log.debug("vol name %s" % name)
+            #if name:
+            #    vol.add_tag("Name", name)
             self._attach_volume(self._volume, instance.id,
                                 self._aws_block_device)
             self._get_volume_device(self._aws_block_device)

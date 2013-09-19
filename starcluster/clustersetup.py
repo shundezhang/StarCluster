@@ -289,7 +289,7 @@ class DefaultClusterSetup(ClusterSetup):
                 continue
             if not device in devices and device.startswith('/dev/sd'):
                 # check for "correct" device in unpatched kernels
-                device = device.replace('/dev/sd', '/dev/xvd')
+                device = device.replace('/dev/sd', '/dev/vd')
                 if not device in devices:
                     log.warn("Cannot find device %s for volume %s" %
                              (device, vol_id))

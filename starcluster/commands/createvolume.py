@@ -72,7 +72,7 @@ class CmdCreateVolume(CmdBase):
             help="The AMI to use when launching volume host instance")
         parser.add_option(
             "-I", "--instance-type", dest="instance_type",
-            action="store", type="choice", default="t1.micro",
+            action="store", type="choice", default="m1.small",
             choices=sorted(static.INSTANCE_TYPES.keys()),
             help="The instance type to use when launching volume "
             "host instance (default: t1.micro)")
@@ -141,7 +141,7 @@ class CmdCreateVolume(CmdBase):
         kwargs = self.specified_options_dict
         kwargs.update(dict(keypair=keypair, key_location=key_location,
                            host_instance=host_instance))
-        vc = volume.VolumeCreator(self.ec2, **kwargs)
+        vc = volume.VolumeCreator(self.ec2, self.s3, **kwargs)
         if host_instance:
             vc._validate_host_instance(host_instance, zone)
         try:

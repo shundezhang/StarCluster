@@ -850,6 +850,7 @@ class Node(object):
         master_fstab.close()
         if not self.ssh.path_exists(path):
             self.ssh.makedirs(path)
+            self.ssh.chmod('0777',path)
         self.ssh.execute('mount %s' % path)
 
     def add_to_etc_hosts(self, nodes):
@@ -858,9 +859,9 @@ class Node(object):
         """
         self.remove_from_etc_hosts(nodes)
         host_file = self.ssh.remote_file('/etc/hosts', 'a')
-        if self.is_master():
-            # hardcoded for nectar
-            print >> host_file, "%s vm-%s.rc.melbourne.nectar.org.au" % (self.ip_address, string.replace(self.ip_address,'.','-'))
+#        if self.is_master():
+#            # hardcoded for nectar
+#            print >> host_file, "%s vm-%s.rc.melbourne.nectar.org.au" % (self.ip_address, string.replace(self.ip_address,'.','-'))
         for node in nodes:
             print >> host_file, node.get_hosts_entry()
         host_file.close()

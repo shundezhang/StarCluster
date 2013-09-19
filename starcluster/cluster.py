@@ -521,7 +521,8 @@ class Cluster(object):
         This method assigns the first volume to /dev/sdz, second to /dev/sdy,
         etc. for all volumes that do not include a device/partition setting
         """
-        devices = ['/dev/sd%s' % s for s in string.lowercase]
+        devices = ['/dev/sd%s' % s for s in string.lowercase[:1:-1]]
+	log.debug("devices %s"%devices)
         devmap = {}
         for volname in vols:
             vol = vols.get(volname)
@@ -1408,6 +1409,7 @@ class Cluster(object):
         wait_for_volumes = []
         for vol in self.volumes:
             volume = self.volumes.get(vol)
+	    log.debug("volume %s"%volume)
             device = volume.get('device')
             vol_id = volume.get('volume_id')
             vol = self.ec2.get_volume(vol_id)

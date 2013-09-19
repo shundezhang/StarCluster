@@ -1,7 +1,6 @@
 mom_config_tmpl = """\
 $pbsserver   master
 $logevent    255
-$usecp *:/home/ /home/
 """
 
 maui_config_tmpl = """\

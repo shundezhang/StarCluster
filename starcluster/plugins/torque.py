@@ -27,16 +27,22 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
         server_name.close()
 
     def _config_mom(self, node):
+	mount_map = node.get_mount_map()
+	usecp_string = ""
+	for mount_point in mount_map:
+	    if ":" in mount_point:
+		dir_name=mount_point.split(":")[1]
+		usecp_string+="$usecp *:"+dir_name+"/ "+dir_name+"/\n"
 	mom_config=node.ssh.remote_file(MOM_CONFIG, 'w')
-        mom_config.write(torque.mom_config_tmpl)
+        mom_config.write(torque.mom_config_tmpl + usecp_string)
         mom_config.close()
-        node.ssh.execute('service pbs_mom start')
+        node.ssh.execute('service pbs_mom restart')
 
     def _config_maui(self, node):
         maui_config=node.ssh.remote_file(MAUI_CONFIG, 'w')
         maui_config.write(torque.maui_config_tmpl)
         maui_config.close()
-        node.ssh.execute('service maui start')
+        node.ssh.execute('service maui restart')
 
     def _setup_master(self, node):
 	self._config_server_name(node)
@@ -47,7 +53,7 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
 	munge_key.close()
 	node.ssh.execute('chown munge:munge '+MUNGE_KEY)
 	node.ssh.execute('chmod 600 '+MUNGE_KEY)
-	node.ssh.execute('service munge start')
+	node.ssh.execute('service munge restart')
 
 	node.ssh.execute('service pbs_server start')
 	node.ssh.execute('qmgr -c "create queue batch"')
