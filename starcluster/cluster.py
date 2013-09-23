@@ -469,10 +469,13 @@ class Cluster(object):
         zone = None
         if self.availability_zone:
             zone = self.ec2.get_zone(self.availability_zone)
+	    log.debug("zone %s"%zone)
         common_zone = None
+	log.debug("self.volumes %s"%self.volumes)
         for volume in self.volumes:
             volid = self.volumes.get(volume).get('volume_id')
             vol = self.ec2.get_volume(volid)
+	    log.debug("vol %s"%vol)
             if not common_zone:
                 common_zone = vol.zone
             elif vol.zone != common_zone:

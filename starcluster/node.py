@@ -484,10 +484,13 @@ class Node(object):
         shell - optional shell assign to new user (default: bash)
         """
         if self.is_master():
-            if self.ssh.path_exists('/dev/vdb1'):
-                self.ssh.execute('mount /dev/vdb1 /home', ignore_exit_status=True)
-            else:
-                self.ssh.execute('mount /dev/vdb /home', ignore_exit_status=True)
+            #if self.ssh.path_exists('/dev/vdb1'):
+            #    self.ssh.execute('mount /dev/vdb1 /home', ignore_exit_status=True)
+            #else:
+            #    self.ssh.execute('mount /dev/vdb /home', ignore_exit_status=True)
+	    self.ssh.execute('mkdir /mnt/home')
+	    self.ssh.execute('mv /home /home.bak')
+	    self.ssh.execute('ln -s /mnt/home /home')
         if gid:
             self.ssh.execute('groupadd -o -g %s %s' % (gid, name))
         user_add_cmd = 'useradd -o '
@@ -850,7 +853,7 @@ class Node(object):
         master_fstab.close()
         if not self.ssh.path_exists(path):
             self.ssh.makedirs(path)
-            self.ssh.chmod('0777',path)
+            self.ssh.chmod(0777,path)
         self.ssh.execute('mount %s' % path)
 
     def add_to_etc_hosts(self, nodes):

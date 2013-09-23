@@ -1188,7 +1188,14 @@ class EasyEC2(EasyAWS):
         """
         Returns a list of all EBS volumes
         """
-        return self.conn.get_all_volumes(filters=filters)
+        vols = self.conn.get_all_volumes(filters=filters)
+        if filters and 'volume-id' in filters:
+            for vol in vols:
+		log.debug('vol %s' % vol.id)
+                if vol.id==filters['volume-id']:
+		    log.debug('found vol %s' % vol)
+                    return [vol]
+	return vols
 
     def get_volume(self, volume_id):
         """
@@ -1196,7 +1203,10 @@ class EasyEC2(EasyAWS):
         Raises exception.VolumeDoesNotExist if unsuccessful
         """
         try:
-            return self.get_volumes(filters={'volume-id': volume_id})[0]
+            vol=self.get_volumes(filters={'volume-id': volume_id})[0]
+	    if not vol:
+	        raise exception.VolumeDoesNotExist(volume_id)
+	    return vol
         except boto.exception.EC2ResponseError, e:
             if e.error_code == "InvalidVolume.NotFound":
                 raise exception.VolumeDoesNotExist(volume_id)
