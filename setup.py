@@ -83,7 +83,7 @@ except ImportError:
 
     extra = {'scripts': ['bin/starcluster']}
 
-VERSION = 0.9999
+VERSION = "0.94.1"
 static = os.path.join('starcluster', 'static.py')
 execfile(static)  # pull VERSION from static.py
 
