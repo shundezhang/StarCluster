@@ -488,8 +488,8 @@ class Node(object):
             #    self.ssh.execute('mount /dev/vdb1 /home', ignore_exit_status=True)
             #else:
             #    self.ssh.execute('mount /dev/vdb /home', ignore_exit_status=True)
-	    self.ssh.execute('mkdir /mnt/home')
-	    self.ssh.execute('mv /home /home.bak')
+	    self.ssh.execute('mkdir /mnt/home', ignore_exit_status=True)
+	    self.ssh.execute('mv /home /home.bak', ignore_exit_status=True)
 	    self.ssh.execute('ln -s /mnt/home /home')
         if gid:
             self.ssh.execute('groupadd -o -g %s %s' % (gid, name))
@@ -862,9 +862,6 @@ class Node(object):
         """
         self.remove_from_etc_hosts(nodes)
         host_file = self.ssh.remote_file('/etc/hosts', 'a')
-#        if self.is_master():
-#            # hardcoded for nectar
-#            print >> host_file, "%s vm-%s.rc.melbourne.nectar.org.au" % (self.ip_address, string.replace(self.ip_address,'.','-'))
         for node in nodes:
             print >> host_file, node.get_hosts_entry()
         host_file.close()
@@ -887,6 +884,8 @@ class Node(object):
         hostname_file = self.ssh.remote_file("/etc/hostname", "w")
         hostname_file.write(hostname)
         hostname_file.close()
+        if self.ssh.isfile('/usr/bin/yum'):
+	    self.ssh.execute('sed -i "s/^HOSTNAME=.*\$/HOSTNAME=%s/g" /etc/sysconfig/network' % hostname)
         self.ssh.execute('hostname -F /etc/hostname')
 
     @property
