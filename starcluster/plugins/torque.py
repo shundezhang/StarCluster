@@ -9,8 +9,19 @@ MUNGE_KEY = '/etc/munge/munge.key'
 SERVER_NAME = '/etc/torque/server_name'
 MOM_CONFIG = '/etc/torque/mom/config'
 MAUI_CONFIG = '/var/spool/maui/maui.cfg'
+EPEL_REPO = '/etc/yum.repos.d/epel.repo'
+UMD_REPO = '/etc/yum.repos.d/umd.repo'
 
 class TorquePlugin(clustersetup.DefaultClusterSetup):
+
+    def _add_yum_repos(self, node):
+        epel_repo=node.ssh.remote_file(EPEL_REPO, 'w')
+        epel_repo.write(torque.epel_repo)
+        epel_repo.close()
+        umd_repo=node.ssh.remote_file(UMD_REPO, 'w')
+        umd_repo.write(torque.umd_repo)
+        umd_repo.close()
+
 
     def _generate_munge_key(self, N):
 	return ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(N))
@@ -28,6 +39,7 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
 
     def _config_mom(self, node):
 	mount_map = node.get_mount_map()
+	log.debug("mount_map %s"%mount_map)
 	usecp_string = ""
 	for mount_point in mount_map:
 	    if ":" in mount_point:
@@ -45,8 +57,11 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
         node.ssh.execute('service maui restart')
 
     def _setup_master(self, node):
-	self._config_server_name(node)
+        self._add_yum_repos(node)
+        node.ssh.execute('yum install -y maui-server maui-client torque-server torque-mom munge torque-client', ignore_exit_status=True)
 	node.ssh.execute('yum install -y denyhosts', ignore_exit_status=True)
+
+	self._config_server_name(node)
 
 	munge_key=node.ssh.remote_file(MUNGE_KEY, 'w')
 	munge_key.write(self._generate_munge_key(1024))
@@ -72,6 +87,9 @@ class TorquePlugin(clustersetup.DefaultClusterSetup):
 	self._config_maui(node)
 
     def _setup_worker_node(self, node):
+        self._add_yum_repos(node)
+        node.ssh.execute('yum install -y torque-mom munge torque-client', ignore_exit_status=True)
+
 	self._config_server_name(node)
 	self._config_mom(node)
 

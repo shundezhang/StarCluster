@@ -28,3 +28,23 @@ LOGFILE               /var/log/maui.log
 LOGFILEMAXSIZE        10000000
 LOGLEVEL              3
 """
+
+epel_repo = """\
+[epel]
+name=epel
+baseurl=http://mirror.internode.on.net/pub/epel/6/$basearch
+skip_if_unavailable=1
+enabled=1
+sslverify=0
+gpgcheck=0
+"""
+
+umd_repo = """\
+[UMD_3_base_SL6]
+name=UMD 3 base SL6
+baseurl=http://repository.egi.eu/sw/production/umd/3/sl6/$basearch/base
+skip_if_unavailable=1
+enabled=1
+sslverify=0
+gpgcheck=0
+"""
