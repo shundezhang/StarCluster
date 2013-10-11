@@ -488,9 +488,10 @@ class Node(object):
             #    self.ssh.execute('mount /dev/vdb1 /home', ignore_exit_status=True)
             #else:
             #    self.ssh.execute('mount /dev/vdb /home', ignore_exit_status=True)
-	    self.ssh.execute('mkdir /mnt/home', ignore_exit_status=True)
-	    self.ssh.execute('mv /home /home.bak', ignore_exit_status=True)
-	    self.ssh.execute('ln -s /mnt/home /home')
+	    if not self.ssh.path_exists('/mnt/home'):
+	        self.ssh.execute('mkdir /mnt/home', ignore_exit_status=True)
+	        self.ssh.execute('mv /home /home.bak', ignore_exit_status=True)
+	        self.ssh.execute('ln -s /mnt/home /home')
         if gid:
             self.ssh.execute('groupadd -o -g %s %s' % (gid, name))
         user_add_cmd = 'useradd -o '
@@ -852,9 +853,11 @@ class Node(object):
                            (device, path))
         master_fstab.close()
         if not self.ssh.path_exists(path):
+	    log.debug("create %s" % path)
             self.ssh.makedirs(path)
-            self.ssh.chmod(0777,path)
         self.ssh.execute('mount %s' % path)
+	log.debug("make availble %s" % path)
+        self.ssh.chmod(0777,path)
 
     def add_to_etc_hosts(self, nodes):
         """

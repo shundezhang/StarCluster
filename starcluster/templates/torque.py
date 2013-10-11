@@ -1,6 +1,6 @@
 mom_config_tmpl = """\
 $pbsserver   master
-$logevent    255
+$logevent    0x1ff
 """
 
 maui_config_tmpl = """\
@@ -48,3 +48,4 @@ enabled=1
 sslverify=0
 gpgcheck=0
 """
+

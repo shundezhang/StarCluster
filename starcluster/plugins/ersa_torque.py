@@ -7,7 +7,7 @@ import time
 
 MUNGE_KEY = '/etc/munge/munge.key'
 SERVER_NAME = '/etc/torque/server_name'
-MOM_CONFIG = '/etc/torque/mom/config'
+MOM_CONFIG = '/var/lib/torque/mom_priv/config'
 MAUI_CONFIG = '/var/spool/maui/maui.cfg'
 
 class ErsaTorquePlugin(clustersetup.DefaultClusterSetup):
@@ -30,10 +30,13 @@ class ErsaTorquePlugin(clustersetup.DefaultClusterSetup):
 	mount_map = node.get_mount_map()
 	log.debug("mount_map %s"%mount_map)
 	usecp_string = ""
-	for mount_point in mount_map:
-	    if ":" in mount_point:
-		dir_name=mount_point.split(":")[1]
-		usecp_string+="$usecp *:"+dir_name+"/ "+dir_name+"/\n"
+	if node.is_master():
+	    usecp_string = "$usecp *:/ /"
+	else:
+	    for mount_point in mount_map:
+	        if ":" in mount_point:
+		    dir_name=mount_point.split(":")[1]
+		    usecp_string+="$usecp *:"+dir_name+"/ "+dir_name+"/\n"
 	mom_config=node.ssh.remote_file(MOM_CONFIG, 'w')
         mom_config.write(torque.mom_config_tmpl + usecp_string)
         mom_config.close()
@@ -46,34 +49,35 @@ class ErsaTorquePlugin(clustersetup.DefaultClusterSetup):
         node.ssh.execute('service maui restart')
 
     def _setup_master(self, node):
-	self._config_server_name(node)
+	#self._config_server_name(node)
 	node.ssh.execute('yum install -y denyhosts', ignore_exit_status=True)
 
-	munge_key=node.ssh.remote_file(MUNGE_KEY, 'w')
-	munge_key.write(self._generate_munge_key(1024))
-	munge_key.close()
-	node.ssh.execute('chown munge:munge '+MUNGE_KEY)
-	node.ssh.execute('chmod 600 '+MUNGE_KEY)
-	node.ssh.execute('service munge restart')
+	#munge_key=node.ssh.remote_file(MUNGE_KEY, 'w')
+	#munge_key.write(self._generate_munge_key(1024))
+	#munge_key.close()
+	#node.ssh.execute('chown munge:munge '+MUNGE_KEY)
+	#node.ssh.execute('chmod 600 '+MUNGE_KEY)
+	#node.ssh.execute('service munge restart')
 
-	node.ssh.execute('service pbs_server start')
-	node.ssh.execute('qmgr -c "create queue batch"')
-	node.ssh.execute('qmgr -c "set queue batch queue_type = Execution"')
-	node.ssh.execute('qmgr -c "set queue batch enabled = True"')
-	node.ssh.execute('qmgr -c "set queue batch started = True"')
-	node.ssh.execute('qmgr -c "set server default_queue = batch"')
-	node.ssh.execute('qmgr -c "set server resources_default.cput = 01:00:00"')
-	node.ssh.execute('qmgr -c "set server resources_default.neednodes = 1"')
-	node.ssh.execute('qmgr -c "set server auto_node_np = True"')
+	#node.ssh.execute('service pbs_server start')
+	#node.ssh.execute('qmgr -c "create queue batch"')
+	#node.ssh.execute('qmgr -c "set queue batch queue_type = Execution"')
+	#node.ssh.execute('qmgr -c "set queue batch enabled = True"')
+	#node.ssh.execute('qmgr -c "set queue batch started = True"')
+	#node.ssh.execute('qmgr -c "set server default_queue = batch"')
+	#node.ssh.execute('qmgr -c "set server resources_default.cput = 01:00:00"')
+	#node.ssh.execute('qmgr -c "set server resources_default.neednodes = 1"')
+	#node.ssh.execute('qmgr -c "set server auto_node_np = True"')
 	#node.ssh.execute('qmgr -c "set server authorized_users = *@master"')
 	
-	node.ssh.execute('qmgr -c "create node master"')
-	self._config_mom(node)
+	#node.ssh.execute('qmgr -c "create node master"')
+	#self._config_mom(node)
 
-	self._config_maui(node)
+	#self._config_maui(node)
 
     def _setup_worker_node(self, node):
-	self._config_server_name(node)
+	#self._config_server_name(node)
+	node.ssh.execute('/sbin/service pbs_server stop', ignore_exit_status=True)
 	self._config_mom(node)
 
     def _setup_torque(self, master=None, nodes=None):
