@@ -16,6 +16,7 @@
 # along with StarCluster. If not, see <http://www.gnu.org/licenses/>.
 
 import time
+import re
 
 from starcluster import static
 from starcluster import exception
@@ -158,6 +159,12 @@ class CmdStart(ClusterCompleter):
         if len(args) != 1:
             self.parser.error("please specify a <cluster_tag>")
         tag = args[0]
+        ###ahill 20131126 added check for invalid cluster names###
+        #log.info("***********tag[%s]***********" % tag)
+        match = re.match('.*[^0-9a-z_-].*', tag)
+        if match is not None:
+            self.parser.error("Invalid character in cluster name[%s]. Use only lower case a-z, numbers, and symbols: - _" % tag)
+        ##########################################################
         create = not self.opts.no_create
         scluster = self.cm.get_cluster_group_or_none(tag)
         if scluster and create:
