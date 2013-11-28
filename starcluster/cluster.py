@@ -647,9 +647,11 @@ class Cluster(object):
 
     @property
     def cluster_group(self):
+	log.debug("self._cluster_group %s"%self._cluster_group)
         if self._cluster_group is None:
             desc = 'StarCluster-%s' % static.VERSION.replace('.', '_')
             sg = self.ec2.get_group_or_none(self._security_group)
+	    log.debug("sg %s"%sg)
             if not sg:
                 sg = self.ec2.create_group(self._security_group,
                                            description=desc, auth_ssh=True,
@@ -1535,10 +1537,11 @@ class Cluster(object):
         Delete the bucket created to store metadata
         sg_name - security group name, used as the bucket name
         """
-        bucket = self.s3.get_bucket(sg_name)
-        for key in bucket.list():
-            bucket.delete_key(key.name)
-        bucket.delete()
+        bucket = self.s3.get_bucket_or_none(sg_name)
+	if bucket:
+            for key in bucket.list():
+            	bucket.delete_key(key.name)
+            bucket.delete()
 
     def delete_bucket(self, sg_name):
         """

@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+from starcluster import static
+from pprint import pprint
+from starcluster.config import StarClusterConfig
+from starcluster import exception
+import sys
+import time
+
+def cleanup(cluster_name):
+    print("Cleaning Cluster %s"%cluster_name)
+    cfg = StarClusterConfig().load()
+    ec2=cfg.get_easy_ec2()
+    s3=cfg.get_easy_s3()
+    #pprint(ec2)
+    #pprint(s3)
+    #pprint(cfg.aws)
+    #pprint(cfg.clusters)
+    #pprint(cfg.keys)
+    #pprint(cfg.vols)
+    sg_name='-'.join([static.SECURITY_GROUP_PREFIX, cluster_name])
+    print("security group %s"%sg_name)
+    try:
+    	bucket=s3.get_bucket(sg_name)
+    	if bucket:
+	    for k in bucket.list():
+	    	print("deleting key %s"%k)
+	    	bucket.delete_key(k)
+            print("deleting bucket %s"%bucket)
+            bucket.delete()
+    except:
+	print "bucket %s doesn't exist"%sg_name
+    sg=ec2.get_group_or_none(sg_name)
+    #print sg.__dict__
+    if sg:
+	instance_ids=[]
+        for i in ec2.get_all_instances():
+	    #print i.groups[0].__dict__
+	    if sg.name in [g.id for g in i.groups]:
+	    	print("terminating instance %s"%i)
+	    	instance_ids.append(getattr(i,"id"))
+	    	i.terminate()
+        all_gone=False
+        while len(instance_ids)>0 and not all_gone:
+            print("sleeping 5 seconds...")
+            time.sleep(5)
+	    all_gone=True
+	    deleted=[]
+	    for id in instance_ids:
+		print("checking %s"%id)
+		try:
+		    inst=ec2.get_instance(id)
+		    print "inst %s is still there" % id
+		    all_gone=False
+		except exception.InstanceDoesNotExist:
+		    print "inst %s has been deleted" % id
+		    deleted.append(id)
+	    if deleted:
+		for d in deleted:
+		    instance_ids.remove(d)
+        print("all instances removed, deleting security group %s"%sg)
+	ec2.delete_group(sg)
+    else:
+	print "security group %s doesn't exist"%sg_name
+
+if __name__ == '__main__':
+    if len(sys.argv)<2:
+	print "Usage: sccleanup [cluster-name]"
+	sys.exit(1)
+    cleanup(sys.argv[1])
+

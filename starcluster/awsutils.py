@@ -648,15 +648,30 @@ class EasyEC2(EasyAWS):
             raise e
 
     def get_all_instances(self, instance_ids=[], filters=None):
+	log.debug("instace_ids %s filters %s"%(instance_ids,filters))
         reservations = self.conn.get_all_instances(instance_ids,
                                                    filters=filters)
         instances = []
         for res in reservations:
             insts = res.instances
+	    #log.debug("insts %s in res %s"%(insts,res))
             for i in insts:
                 # set group info
                 i.groups = res.groups
-            instances.extend(insts)
+		#log.debug(i.__dict__)
+	    	if (filters and "instance-id" in filters and not hasattr(filters["instance-id"],'__iter__') and getattr(i, "id")!=filters["instance-id"]):
+		    continue
+	    	elif (filters and "instance-id" in filters and hasattr(filters["instance-id"],'__iter__') and getattr(i, "id") not in filters["instance-id"]):
+		    continue
+		elif instance_ids and getattr(i, "id") not in instance_ids:
+		    continue
+		elif filters and 'group-name' in filters and filters['group-name'] not in [g.id for g in i.groups]:
+		    continue
+		elif filters and 'instance-state-name' in filters and i.state not in filters['instance-state-name']:
+		    continue
+		instances.append(i)
+            #instances.extend(insts)
+	log.debug("found insts %s"%instances)
         return instances
 
     def get_instance(self, instance_id):
@@ -1558,8 +1573,12 @@ class EasyS3(EasyAWS):
         return key.get_contents_as_string()
 
     def get_files_as_map(self, bucket_name, pattern=None):
-        bucket = self.get_bucket(bucket_name)
-        keys = {}
+	try:
+            bucket = self.get_bucket(bucket_name)
+        except:
+	    log.debug("the bucket %s doesn't exist."%bucket_name)
+	    return {}
+	keys = {}
 	log.debug('pattern %s'%pattern)
 	for key in bucket.list():
 	    if (pattern and re.match(pattern,key.name)) or not pattern:
