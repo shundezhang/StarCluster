@@ -781,15 +781,15 @@ class Cluster(object):
         log.debug('nodes %s' % nodes)
         if not nodes:
             filters = {'group-name': self._security_group}
-            all_nodes = self.ec2.get_all_instances(filters=filters)
-            terminated_nodes = []
-            for node in all_nodes:
-                sg_names = []
-                for sg in node.groups:
-                  sg_names.append(sg.id)
-                if self._security_group.name in sg_names:
-                  terminated_nodes.append(node)
-            log.debug('terminated_nodes %s' % terminated_nodes)
+            terminated_nodes = self.ec2.get_all_instances(filters=filters)
+            #terminated_nodes = []
+            #for node in all_nodes:
+            #    sg_names = []
+            #    for sg in node.groups:
+            #      sg_names.append(sg.id)
+            #    if self._security_group.name in sg_names:
+            #      terminated_nodes.append(node)
+            #log.debug('terminated_nodes %s' % terminated_nodes)
             raise exception.NoClusterNodesFound(terminated_nodes)
         return nodes
 
