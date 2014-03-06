@@ -49,3 +49,79 @@ sslverify=0
 gpgcheck=0
 """
 
+dt_config_tmpl = """\
+[global]
+job_mode: active
+
+[cloud]
+cloud_username: %(CLOUD_USERNAME)s
+cloud_password: %(CLOUD_PASSWORD)s
+cloud_tenant_name: %(CLOUD_TENANT_NAME)s
+cloud_image_uuid: %(CLOUD_IMAGE_UUID)s
+cloud_auth_url: https://keystone.rc.nectar.org.au:5000/v2.0/
+cloud_key_name: %(CLOUD_KEY_NAME)s
+cloud_security_groups: %(CLOUD_SECURITY_GROUP)s
+cloud_private_key_location: /etc/dynamictorque/%(CLOUD_KEY_NAME)s.pem
+cloud_availability_zone: %(CLOUD_AVAILABILITY_ZONE)s
+cloud_vm_prefix: %(CLOUD_SECURITY_GROUP)s-
+cloud_vm_init_file:
+cloud_vm_userdata_file: /etc/dynamictorque/userdata.sh
+#static_core_number: 
+max_number_cores_per_vm: 2
+dynamic_core_number: %(DYNAMIC_CORE_NUMBER)s
+cloud_vm_init_finish_file: /var/run/vmpool/alive
+
+[torque]
+torque_queue_to_monitor: batch
+node_property: cloud
+node_location_property: CLOUD:%(CLOUD_AVAILABILITY_ZONE)s
+default_location: 0
+
+[logging]
+log_level: DEBUG
+log_location: /var/log/dynamictorque/dynamictorque.log
+"""
+
+dt_userdata_tmpl = """\
+#!/bin/bash
+
+/bin/sed -i 's/^SELINUX=.*$/SELINUX=disabled/' /etc/selinux/config
+/usr/sbin/setenforce Permissive
+
+PBS_SERVER=master
+
+cat << EOF >> /etc/hosts
+%(MASTER_IP_ADDR)s master
+EOF
+
+# figure out correct hostname
+IP=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -d' ' -f1)
+NAME=$(nslookup $IP | grep "name =" | cut -d" " -f3)
+HOSTNAME=$(echo $NAME | sed - -e "s/\.$//")
+if [ ! "$(hostname)" = "$HOSTNAME" ]; then
+    # set hostname in system files
+    /bin/hostname $HOSTNAME
+    echo "$IP $HOSTNAME" >> /etc/hosts
+    /bin/sed -i -e "s/^HOSTNAME=.*$/HOSTNAME=$HOSTNAME/" /etc/sysconfig/network
+fi
+
+groupadd -o -g %(GROUP_ID)s %(GROUP_NAME)s
+useradd -o -u %(USER_ID)s -g %(GROUP_ID)s -s `which bash` -m %(USER_NAME)s
+
+yum -d 0 -e 0 -y install nfs-utils nfs-utils-lib
+/etc/init.d/rpcbind start
+
+%(MOUNTS)s
+
+/sbin/service pbs_server stop
+cat << EOF > /etc/torque/mom/config
+\$pbsserver   master
+\$logevent    0x1ff
+%(USECP)s
+EOF
+
+if [ ! -d /var/run/vmpool ]; then
+    mkdir -p /var/run/vmpool
+fi
+touch /var/run/vmpool/alive
+"""

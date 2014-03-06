@@ -1,6 +1,7 @@
 from starcluster import clustersetup
 from starcluster.templates import torque
 from starcluster.logger import log
+from starcluster.config import StarClusterConfig
 import random
 import string
 import time
@@ -9,8 +10,24 @@ MUNGE_KEY = '/etc/munge/munge.key'
 SERVER_NAME = '/etc/torque/server_name'
 MOM_CONFIG = '/var/lib/torque/mom_priv/config'
 MAUI_CONFIG = '/var/spool/maui/maui.cfg'
+DYNAMIC_TORQUE_CONFIG = '/etc/dynamictorque/dynamic_torque.conf'
+DYNAMIC_TORQUE_USERDATA= '/etc/dynamictorque/userdata.sh'
+DYNAMIC_TORQUE_DIR = '/etc/dynamictorque'
 
 class ErsaTorquePlugin(clustersetup.DefaultClusterSetup):
+
+    def __init__(self, enable_dynamic=False, os_username=None, os_password=None, os_tenant_name=None, os_image_uuid=None, os_key_name=None, dynamic_core_number="0"):
+	super(ErsaTorquePlugin, self).__init__()
+	self._enable_dynamic=enable_dynamic
+        self._os_username=os_username
+        self._os_password=os_password
+        self._os_tenant_name=os_tenant_name
+        self._os_image_uuid=os_image_uuid
+        self._os_key_name=os_key_name
+        self._dynamic_core_number=dynamic_core_number
+        self._cfg=StarClusterConfig()
+        self._cfg.load()
+        log.debug("cfg: %s" % self._cfg)
 
     def _generate_munge_key(self, N):
 	return ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(N))
@@ -91,6 +108,7 @@ class ErsaTorquePlugin(clustersetup.DefaultClusterSetup):
         nodes = nodes or self.nodes
         log.info("Starting Torque headnode")
         log.debug('master %s' % master.__dict__)
+        log.debug('master.instance %s' % master.instance.__dict__)
         self._setup_master(master)
         log.info("Starting Torque worker nodes")
 	
@@ -99,6 +117,37 @@ class ErsaTorquePlugin(clustersetup.DefaultClusterSetup):
             self.pool.simple_job(self._setup_worker_node, (node,),
                                  jobid=node.alias)
         self.pool.wait(numtasks=len(nodes))
+
+    def _configure_dynamic_torque(self, master, user, user_id, group_id):
+	master.ssh.execute('yum install -y git python-pip python-devel gcc-c++ make', ignore_exit_status=True)
+	master.ssh.execute('pip install python-novaclient', ignore_exit_status=True)
+	master.ssh.execute('cd /opt; git clone https://github.com/shundezhang/dynamictorque.git')
+	master.ssh.execute('cp /opt/dynamictorque/scripts/dynamictorque /etc/init.d/')
+	master.ssh.mkdir('/var/log/dynamictorque')
+	master.ssh.mkdir('/etc/dynamictorque')
+        dt_cfg = master.ssh.remote_file(DYNAMIC_TORQUE_CONFIG, 'w')
+	log.debug("sg %s"%master.instance.groups[0].__dict__)
+	log.debug("sg name %s"%master.instance.groups[0].name)
+        ctx = dict(CLOUD_USERNAME=self._os_username, CLOUD_PASSWORD=self._os_password,
+                   CLOUD_TENANT_NAME=self._os_tenant_name, CLOUD_IMAGE_UUID=self._os_image_uuid,
+		   CLOUD_KEY_NAME=self._os_key_name, CLOUD_SECURITY_GROUP=master.instance.groups[0].id,
+		   CLOUD_AVAILABILITY_ZONE=master.instance._placement, DYNAMIC_CORE_NUMBER=self._dynamic_core_number)
+        dt_cfg.write(torque.dt_config_tmpl % ctx)
+        dt_cfg.close()
+	master.ssh.put(master.key_location, DYNAMIC_TORQUE_DIR+'/'+self._os_key_name+".pem")
+        usecp_string = ""
+	mount_string=""
+	export_paths = self._get_nfs_export_paths()
+	log.debug(export_paths)
+        for path in export_paths:
+            usecp_string+="\$usecp *:"+path+"/ "+path+"/\n"
+            mount_string+="mkdir -p "+path+";mount -t nfs -o vers=3,user,rw,exec,noauto master:"+path+"/ "+path+"\n"
+
+        dt_userdata = master.ssh.remote_file(DYNAMIC_TORQUE_USERDATA, 'w')
+        ctx = dict(MASTER_IP_ADDR=master.instance.ip_address, USECP=usecp_string, MOUNTS=mount_string, GROUP_ID=group_id, GROUP_NAME=user, 
+		   USER_ID=user_id, USER_NAME=user)
+	dt_userdata.write(torque.dt_userdata_tmpl % ctx)
+	dt_userdata.close()
 
     def run(self, nodes, master, user, user_id, group_id, user_shell, volumes):
         try:
@@ -110,6 +159,11 @@ class ErsaTorquePlugin(clustersetup.DefaultClusterSetup):
             self._setup_torque()
         finally:
             self.pool.shutdown()
+	log.debug("cfg: %s" % self._cfg.aws)
+	log.debug("cfg: %s" % self._cfg.__dict__)
+        if self._enable_dynamic:
+            log.info("Configure Dynamic Torque...")
+            self._configure_dynamic_torque(master, user, user_id, group_id)
 
     def on_add_node(self, node, nodes, master, user, user_id, group_id, user_shell, volumes):
         self._nodes = nodes

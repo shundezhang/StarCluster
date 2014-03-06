@@ -89,6 +89,7 @@ execfile(static)  # pull VERSION from static.py
 
 README = open('README.rst').read()
 
+extra = {'scripts': ['bin/sccleanup']}
 setup(
     name='StarCluster-openstack',
     version=VERSION,
