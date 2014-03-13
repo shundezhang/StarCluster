@@ -2142,12 +2142,12 @@ class ClusterValidator(validators.Validator):
                     "Incorrect fingerprint for key_location '%s'\n\n"
                     "local fingerprint: %s\n\nkeypair fingerprint: %s"
                     % (key_location, keyfingerprint, fingerprint))
-        else:
+        #else:
             # Skip fingerprint validation for keys created using EC2 import
             # keys until I can figure out the mystery behind the import keys
             # fingerprint. I'm able to match ssh-keygen's public key
             # fingerprint, however, Amazon doesn't for some reason...
-            log.warn("Unable to validate imported keypair fingerprint...")
+            #log.warn("Unable to validate imported keypair fingerprint...")
         return True
 
     def validate_userdata(self):
