@@ -139,15 +139,21 @@ class ErsaTorquePlugin(clustersetup.DefaultClusterSetup):
 	mount_string=""
 	export_paths = self._get_nfs_export_paths()
 	log.debug(export_paths)
+        etc_exports = master.ssh.remote_file('/etc/exports', 'a')
+
         for path in export_paths:
             usecp_string+="\$usecp *:"+path+"/ "+path+"/\n"
             mount_string+="mkdir -p "+path+";mount -t nfs -o vers=3,user,rw,exec,noauto master:"+path+"/ "+path+"\n"
+            export_line = path + ' *(async,no_root_squash,no_subtree_check,rw)\n'
+	    etc_exports.write(export_line)
+        etc_exports.close()
 
         dt_userdata = master.ssh.remote_file(DYNAMIC_TORQUE_USERDATA, 'w')
         ctx = dict(MASTER_IP_ADDR=master.instance.ip_address, USECP=usecp_string, MOUNTS=mount_string, GROUP_ID=group_id, GROUP_NAME=user, 
 		   USER_ID=user_id, USER_NAME=user)
 	dt_userdata.write(torque.dt_userdata_tmpl % ctx)
 	dt_userdata.close()
+	master.ssh.execute('/etc/init.d/dynamictorque start')
 
     def run(self, nodes, master, user, user_id, group_id, user_shell, volumes):
         try:

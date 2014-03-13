@@ -52,6 +52,13 @@ gpgcheck=0
 dt_config_tmpl = """\
 [global]
 job_mode: active
+qstat_command: /opt/shared/system/torque/3.0.5-cpu/bin/qstat -x -t
+pbsnodes_command: /opt/shared/system/torque/3.0.5-cpu/bin/pbsnodes {0} {1}
+add_node_command: /opt/shared/system/torque/3.0.5-cpu/bin/qmgr -c "create node {0}"
+check_node_command: /opt/shared/system/maui/3.3-gpu-torque-3.0.5/bin/checknode {0}
+remove_node_command: /opt/shared/system/torque/3.0.5-cpu/bin/qmgr -c "delete node {0}"
+set_node_command: /opt/shared/system/torque/3.0.5-cpu/bin/qmgr -c "set node {0} {1} {2} {3}"
+diagnose_p_command: /opt/shared/system/maui/3.3-gpu-torque-3.0.5/bin/diagnose -p
 
 [cloud]
 cloud_username: %(CLOUD_USERNAME)s
@@ -90,6 +97,7 @@ dt_userdata_tmpl = """\
 
 PBS_SERVER=master
 
+sed -i '/master/d' /etc/hosts
 cat << EOF >> /etc/hosts
 %(MASTER_IP_ADDR)s master
 EOF
