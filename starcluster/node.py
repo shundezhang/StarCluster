@@ -787,10 +787,10 @@ class Node(object):
         fstab = self.ssh.remote_file('/etc/fstab', 'a')
         for path in remote_paths:
             if self.package_provider == "yum":
-                fstab.write('%s:%s %s nfs vers=3,user,rw,exec,noauto 0 0\n' %
+                fstab.write('%s:%s %s nfs vers=3,user,rw,exec 0 0\n' %
                         (server_node.alias, path, path))
             if self.package_provider == "apt":
-                fstab.write('%s:%s %s nfs vers=4,user,rw,exec,noauto 0 0\n' %
+                fstab.write('%s:%s %s nfs vers=4,user,rw,exec 0 0\n' %
                         (server_node.alias, path, path))
 
         fstab.close()
@@ -849,7 +849,7 @@ class Node(object):
         self.ssh.remove_lines_from_file('/etc/fstab',
                                         path.center(len(path) + 2))
         master_fstab = self.ssh.remote_file('/etc/fstab', mode='a')
-        master_fstab.write("%s %s auto noauto,defaults 0 0\n" %
+        master_fstab.write("%s %s auto defaults 0 0\n" %
                            (device, path))
         master_fstab.close()
         if not self.ssh.path_exists(path):
